@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SRT×ÖÄ»ÅúÁ¿¶Ô±È¹¤¾ß</title>
+    <meta charset="UTF-8">
+    <title>SRTå­—å¹•æ‰¹é‡å¯¹æ¯”å·¥å…·</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -117,31 +118,31 @@
 </head>
 <body>
     <div class="container">
-        <h1>SRT×ÖÄ»ÅúÁ¿¶Ô±È¹¤¾ß</h1>
+        <h1>SRTå­—å¹•æ‰¹é‡å¯¹æ¯”å·¥å…·</h1>
         
         <div class="upload-area" id="upload-area">
-            <h3>µã»÷ÉÏ´«Ô­Ê¼SRTÎÄ¼ş</h3>
+            <h3>ç‚¹å‡»ä¸Šä¼ åŸå§‹SRTæ–‡ä»¶</h3>
             <input type="file" id="original-files" accept=".srt" multiple style="display: none;">
-            <p>ÇëÉÏ´«Ô­Ê¼×ÖÄ»ÎÄ¼ş£¨Ö§³Ö¶àÑ¡£©</p>
+            <p>è¯·ä¸Šä¼ åŸå§‹å­—å¹•æ–‡ä»¶ï¼ˆæ”¯æŒå¤šé€‰ï¼‰</p>
             <div id="original-file-info" class="file-info"></div>
         </div>
         
         <div class="upload-area" id="translated-upload-area">
-            <h3>µã»÷ÉÏ´«ÉóĞ£ºóµÄSRTÎÄ¼ş</h3>
+            <h3>ç‚¹å‡»ä¸Šä¼ å®¡æ ¡åçš„SRTæ–‡ä»¶</h3>
             <input type="file" id="translated-files" accept=".srt" multiple style="display: none;">
-            <p>ÇëÉÏ´«ÉóĞ£ºóµÄ×ÖÄ»ÎÄ¼ş£¨Ö§³Ö¶àÑ¡£©</p>
+            <p>è¯·ä¸Šä¼ å®¡æ ¡åçš„å­—å¹•æ–‡ä»¶ï¼ˆæ”¯æŒå¤šé€‰ï¼‰</p>
             <div id="translated-file-info" class="file-info"></div>
         </div>
         
-        <button class="compare-btn" id="compare-btn" disabled>¿ªÊ¼¶Ô±È</button>
+        <button class="compare-btn" id="compare-btn" disabled>å¼€å§‹å¯¹æ¯”</button>
         
         <div id="result-container" class="result-summary" style="display: none;">
-            <!-- ½á¹û½«ÔÚÕâÀïÏÔÊ¾ -->
+            <!-- ç»“æœå°†åœ¨è¿™é‡Œæ˜¾ç¤º -->
         </div>
     </div>
 
     <script>
-        // ÎÄ¼şÉÏ´«ÇøÓò½»»¥
+        // æ–‡ä»¶ä¸Šä¼ åŒºåŸŸäº¤äº’
         document.getElementById('upload-area').addEventListener('click', function() {
             document.getElementById('original-files').click();
         });
@@ -150,7 +151,7 @@
             document.getElementById('translated-files').click();
         });
         
-        // ÍÏ×§ÉÏ´«¹¦ÄÜ
+        // æ‹–æ‹½ä¸Šä¼ åŠŸèƒ½
         function handleDragOver(evt) {
             evt.stopPropagation();
             evt.preventDefault();
@@ -173,10 +174,10 @@
             if (files.length > 0) {
                 if (area.id === 'upload-area') {
                     document.getElementById('original-files').files = files;
-                    updateFileInfo('original-file-info', files.length + ' ¸öÎÄ¼şÒÑÉÏ´«');
+                    updateFileInfo('original-file-info', files.length + ' ä¸ªæ–‡ä»¶å·²ä¸Šä¼ ');
                 } else {
                     document.getElementById('translated-files').files = files;
-                    updateFileInfo('translated-file-info', files.length + ' ¸öÎÄ¼şÒÑÉÏ´«');
+                    updateFileInfo('translated-file-info', files.length + ' ä¸ªæ–‡ä»¶å·²ä¸Šä¼ ');
                 }
             }
         }
@@ -189,24 +190,24 @@
         document.getElementById('translated-upload-area').addEventListener('dragleave', handleDragLeave);
         document.getElementById('translated-upload-area').addEventListener('drop', function(evt) { handleDrop(evt, this); });
         
-        // ¸üĞÂÎÄ¼şĞÅÏ¢ÏÔÊ¾
+        // æ›´æ–°æ–‡ä»¶ä¿¡æ¯æ˜¾ç¤º
         function updateFileInfo(elementId, message) {
             const fileInfo = document.getElementById(elementId);
             fileInfo.textContent = message;
         }
         
-        // ÎÄ¼şÑ¡ÔñÊÂ¼ş
+        // æ–‡ä»¶é€‰æ‹©äº‹ä»¶
         document.getElementById('original-files').addEventListener('change', function(evt) {
-            updateFileInfo('original-file-info', evt.target.files.length + ' ¸öÎÄ¼şÒÑÉÏ´«');
+            updateFileInfo('original-file-info', evt.target.files.length + ' ä¸ªæ–‡ä»¶å·²ä¸Šä¼ ');
             checkFilesSelected();
         });
         
         document.getElementById('translated-files').addEventListener('change', function(evt) {
-            updateFileInfo('translated-file-info', evt.target.files.length + ' ¸öÎÄ¼şÒÑÉÏ´«');
+            updateFileInfo('translated-file-info', evt.target.files.length + ' ä¸ªæ–‡ä»¶å·²ä¸Šä¼ ');
             checkFilesSelected();
         });
         
-        // ¼ì²éÊÇ·ñÒÑÑ¡ÔñÎÄ¼ş
+        // æ£€æŸ¥æ˜¯å¦å·²é€‰æ‹©æ–‡ä»¶
         function checkFilesSelected() {
             const originalFiles = document.getElementById('original-files').files;
             const translatedFiles = document.getElementById('translated-files').files;
@@ -215,7 +216,7 @@
             compareBtn.disabled = originalFiles.length === 0 || translatedFiles.length === 0;
         }
         
-        // ½âÎöSRTÎÄ¼şÄÚÈİ
+        // è§£æSRTæ–‡ä»¶å†…å®¹
         function parseSrtContent(content) {
             const lines = content.split('\n');
             const subtitles = [];
@@ -244,7 +245,7 @@
                 } else if (currentSubtitle.time === '') {
                     currentSubtitle.time = line;
                 } else {
-                    // ´¦Àí¶àĞĞÎÄ±¾
+                    // å¤„ç†å¤šè¡Œæ–‡æœ¬
                     currentSubtitle.text += (inTextSection ? '\n' : '') + line;
                     inTextSection = true;
                 }
@@ -258,19 +259,19 @@
             return subtitles;
         }
         
-        // ½«Ê±¼ä×Ö·û´®×ª»»ÎªÃëÊı£¨ºöÂÔºÁÃë²¿·Ö£©
+        // å°†æ—¶é—´å­—ç¬¦ä¸²è½¬æ¢ä¸ºç§’æ•°ï¼ˆå¿½ç•¥æ¯«ç§’éƒ¨åˆ†ï¼‰
         function timeStrToSeconds(timeStr) {
             const [timePart] = timeStr.split(',');
             const [hours, minutes, seconds] = timePart.split(':').map(Number);
             return hours * 3600 + minutes * 60 + seconds;
         }
         
-        // ¼ì²éÎÄ±¾ÊÇ·ñ°üº¬»»ĞĞ·û
+        // æ£€æŸ¥æ–‡æœ¬æ˜¯å¦åŒ…å«æ¢è¡Œç¬¦
         function containsLineBreak(text) {
             return text.includes('\n') || text.includes('<br>');
         }
         
-        // ¶Ô±ÈÁ½¼¯×ÖÄ»
+        // å¯¹æ¯”ä¸¤é›†å­—å¹•
         function compareEpisodes(originalContent, translatedContent) {
             const originalSubtitles = parseSrtContent(originalContent);
             const translatedSubtitles = parseSrtContent(translatedContent);
@@ -288,7 +289,7 @@
                 subtitles: []
             };
             
-            // °´Ê±¼äÖáÅÅĞò×ÖÄ»
+            // æŒ‰æ—¶é—´è½´æ’åºå­—å¹•
             const sortedOriginal = [...originalSubtitles].sort((a, b) => {
                 return timeStrToSeconds(a.time.split(' --> ')[0]) - timeStrToSeconds(b.time.split(' --> ')[0]);
             });
@@ -321,41 +322,41 @@
                         let modificationTypes = [];
                         
                         if (original.text === translated.text) {
-                            statusText = 'Î´ĞŞ¸Ä';
+                            statusText = 'æœªä¿®æ”¹';
                             statusClass = 'no-change';
                         } else {
-                            // ¼ì²éÊÇ·ñÎª»»ĞĞĞŞ¸Ä
+                            // æ£€æŸ¥æ˜¯å¦ä¸ºæ¢è¡Œä¿®æ”¹
                             const originalHasLineBreak = containsLineBreak(original.text);
                             const translatedHasLineBreak = containsLineBreak(translated.text);
                             
-                            // ±ê×¼»¯ÎÄ±¾£¨ÒÆ³ı»»ĞĞ·ûºÍ¶àÓà¿Õ¸ñ£©
+                            // æ ‡å‡†åŒ–æ–‡æœ¬ï¼ˆç§»é™¤æ¢è¡Œç¬¦å’Œå¤šä½™ç©ºæ ¼ï¼‰
                             const originalTextNormalized = original.text.replace(/\s+/g, ' ');
                             const translatedTextNormalized = translated.text.replace(/\s+/g, ' ');
                             
                             if (originalTextNormalized === translatedTextNormalized) {
                                 if (originalHasLineBreak !== translatedHasLineBreak) {
                                     comparisonResult.lineBreakModified++;
-                                    modificationTypes.push('»»ĞĞ');
+                                    modificationTypes.push('æ¢è¡Œ');
                                 }
                             } else {
-                                // ¼ì²éÊÇ·ñÖ»ÓĞ±êµã·ûºÅ²îÒì
+                                // æ£€æŸ¥æ˜¯å¦åªæœ‰æ ‡ç‚¹ç¬¦å·å·®å¼‚
                                 const originalTextNoPunctuation = original.text.replace(/[.,!?;:]/g, '');
                                 const translatedTextNoPunctuation = translated.text.replace(/[.,!?;:]/g, '');
                                 
                                 if (originalTextNoPunctuation === translatedTextNoPunctuation) {
                                     comparisonResult.punctuationModified++;
-                                    modificationTypes.push('±êµã·ûºÅ');
+                                    modificationTypes.push('æ ‡ç‚¹ç¬¦å·');
                                 } else {
-                                    // ¼ì²éÊÇ·ñÖ»ÓĞ¿Õ¸ñ²îÒì
+                                    // æ£€æŸ¥æ˜¯å¦åªæœ‰ç©ºæ ¼å·®å¼‚
                                     const originalTextNoSpace = original.text.replace(/\s+/g, '');
                                     const translatedTextNoSpace = translated.text.replace(/\s+/g, '');
                                     
                                     if (originalTextNoSpace === translatedTextNoSpace) {
                                         comparisonResult.spaceModified++;
-                                        modificationTypes.push('¿Õ¸ñ');
+                                        modificationTypes.push('ç©ºæ ¼');
                                     } else {
                                         comparisonResult.modifiedSubtitles++;
-                                        modificationTypes.push('ÎÄ±¾');
+                                        modificationTypes.push('æ–‡æœ¬');
                                     }
                                 }
                             }
@@ -384,9 +385,9 @@
                             index: original.index,
                             originalTime: original.time,
                             original: original.text,
-                            translatedTime: '·­ÒëÎÄ¼şÖĞ²»´æÔÚ',
+                            translatedTime: 'ç¿»è¯‘æ–‡ä»¶ä¸­ä¸å­˜åœ¨',
                             translated: '',
-                            status: 'È±ÉÙ·­Òë',
+                            status: 'ç¼ºå°‘ç¿»è¯‘',
                             statusClass: 'missing'
                         });
                         originalIndex++;
@@ -394,11 +395,11 @@
                         comparisonResult.extraSubtitles++;
                         comparisonResult.subtitles.push({
                             index: translated.index,
-                            originalTime: 'Ô­Ê¼ÎÄ¼şÖĞ²»´æÔÚ',
+                            originalTime: 'åŸå§‹æ–‡ä»¶ä¸­ä¸å­˜åœ¨',
                             original: '',
                             translatedTime: translated.time,
                             translated: translated.text,
-                            status: '¶îÍâ·­Òë',
+                            status: 'é¢å¤–ç¿»è¯‘',
                             statusClass: 'extra'
                         });
                         translatedIndex++;
@@ -410,9 +411,9 @@
                         index: original.index,
                         originalTime: original.time,
                         original: original.text,
-                        translatedTime: '·­ÒëÎÄ¼şÖĞ²»´æÔÚ',
+                        translatedTime: 'ç¿»è¯‘æ–‡ä»¶ä¸­ä¸å­˜åœ¨',
                         translated: '',
-                        status: 'È±ÉÙ·­Òë',
+                        status: 'ç¼ºå°‘ç¿»è¯‘',
                         statusClass: 'missing'
                     });
                     originalIndex++;
@@ -421,11 +422,11 @@
                     comparisonResult.extraSubtitles++;
                     comparisonResult.subtitles.push({
                         index: translated.index,
-                        originalTime: 'Ô­Ê¼ÎÄ¼şÖĞ²»´æÔÚ',
+                        originalTime: 'åŸå§‹æ–‡ä»¶ä¸­ä¸å­˜åœ¨',
                         original: '',
                         translatedTime: translated.time,
                         translated: translated.text,
-                        status: '¶îÍâ·­Òë',
+                        status: 'é¢å¤–ç¿»è¯‘',
                         statusClass: 'extra'
                     });
                     translatedIndex++;
@@ -455,7 +456,7 @@
             return comparisonResult;
         }
         
-        // °´ÎÄ¼şÃûÖĞµÄÊı×ÖÅÅĞò
+        // æŒ‰æ–‡ä»¶åä¸­çš„æ•°å­—æ’åº
         function sortFilesByNumber(files) {
             const fileArray = Array.from(files);
             return fileArray.sort((a, b) => {
@@ -465,13 +466,13 @@
             });
         }
         
-        // °´ÎÄ¼şÃûÖĞµÄÊı×ÖÌáÈ¡ÅÅĞò¼ü
+        // æŒ‰æ–‡ä»¶åä¸­çš„æ•°å­—æå–æ’åºé”®
         function getFileSortKey(fileName) {
             const match = fileName.match(/\d+/);
             return match ? parseInt(match[0]) : Infinity;
         }
         
-        // ¶ÔÎÄ¼şÃûÁĞ±í½øĞĞÅÅĞò
+        // å¯¹æ–‡ä»¶ååˆ—è¡¨è¿›è¡Œæ’åº
         function sortFileNames(fileNameList) {
             return fileNameList.sort((a, b) => {
                 const numA = parseInt(a.match(/\d+/)[0]);
@@ -480,13 +481,13 @@
             });
         }
         
-        // ¿ªÊ¼¶Ô±ÈËùÓĞÎÄ¼ş
+        // å¼€å§‹å¯¹æ¯”æ‰€æœ‰æ–‡ä»¶
         document.getElementById('compare-btn').addEventListener('click', function() {
             const originalFiles = document.getElementById('original-files').files;
             const translatedFiles = document.getElementById('translated-files').files;
             
             if (originalFiles.length === 0 || translatedFiles.length === 0) {
-                alert('ÇëÉÏ´«Ô­Ê¼ÎÄ¼şºÍ·­ÒëÎÄ¼ş');
+                alert('è¯·ä¸Šä¼ åŸå§‹æ–‡ä»¶å’Œç¿»è¯‘æ–‡ä»¶');
                 return;
             }
             
@@ -495,12 +496,12 @@
             
             const resultContainer = document.getElementById('result-container');
             resultContainer.style.display = 'block';
-            resultContainer.innerHTML = '<h2>¶Ô±È½á¹û</h2>';
+            resultContainer.innerHTML = '<h2>å¯¹æ¯”ç»“æœ</h2>';
             
             let totalEpisodes = 0;
             let totalUnchangedEpisodes = 0;
             let totalModifiedEpisodes = 0;
-            let totalMinorModifiedEpisodes = 0; // ĞÂÔöÍ³¼Æ±äÁ¿
+            let totalMinorModifiedEpisodes = 0; // æ–°å¢ç»Ÿè®¡å˜é‡
             let totalMissingEpisodes = 0;
             let totalTotalSubtitles = 0;
             let totalModifiedSubtitles = 0;
@@ -510,13 +511,13 @@
             let totalMissingSubtitles = 0;
             unchangedEpisodes = [];
             modifiedEpisodes = [];
-            minorModifiedEpisodes = []; // ĞÂÔöÍ³¼ÆÊı×é
+            minorModifiedEpisodes = []; // æ–°å¢ç»Ÿè®¡æ•°ç»„
             let progress = 0;
             const totalFiles = sortedOriginalFiles.length;
             
             const progressIndicator = document.createElement('div');
             progressIndicator.id = 'progress-indicator';
-            progressIndicator.textContent = '¶Ô±ÈÖĞ£¬ÇëÉÔºò...';
+            progressIndicator.textContent = 'å¯¹æ¯”ä¸­ï¼Œè¯·ç¨å€™...';
             progressIndicator.style.textAlign = 'center';
             progressIndicator.style.margin = '20px 0';
             resultContainer.appendChild(progressIndicator);
@@ -553,7 +554,7 @@
                                     totalModifiedEpisodes++;
                                     modifiedEpisodes.push(originalFile.name);
                                     
-                                    // ¼ì²éÊÇ·ñÖ»ÓĞÇáÎ¢ĞŞ¸Ä
+                                    // æ£€æŸ¥æ˜¯å¦åªæœ‰è½»å¾®ä¿®æ”¹
                                     if (comparisonResult.modifiedSubtitles === 0 && 
                                         (comparisonResult.punctuationModified > 0 || 
                                         comparisonResult.spaceModified > 0 || 
@@ -578,7 +579,7 @@
                                 
                                 progress++;
                                 if (progress < totalFiles) {
-                                    document.getElementById('progress-indicator').textContent = `¶Ô±ÈÖĞ£¬ÇëÉÔºò... (${progress}/${totalFiles})`;
+                                    document.getElementById('progress-indicator').textContent = `å¯¹æ¯”ä¸­ï¼Œè¯·ç¨å€™... (${progress}/${totalFiles})`;
                                 } else {
                                     setTimeout(() => {
                                         if (document.getElementById('progress-indicator')) {
@@ -616,7 +617,7 @@
                             
                             progress++;
                             if (progress < totalFiles) {
-                                document.getElementById('progress-indicator').textContent = `¶Ô±ÈÖĞ£¬ÇëÉÔºò... (${progress}/${totalFiles})`;
+                                document.getElementById('progress-indicator').textContent = `å¯¹æ¯”ä¸­ï¼Œè¯·ç¨å€™... (${progress}/${totalFiles})`;
                             } else {
                                 setTimeout(() => {
                                     if (document.getElementById('progress-indicator')) {
@@ -648,30 +649,30 @@
                 const modificationRate = grandTotalEpisodes > 0 ? ((totalModifiedEpisodes / grandTotalEpisodes) * 100).toFixed(2) : 0;
                 const minorModificationRate = grandTotalEpisodes > 0 ? ((totalMinorModifiedEpisodes / grandTotalEpisodes) * 100).toFixed(2) : 0;
 
-                // ¼ÆËãÎÄ±¾ĞŞ¸Ä×ÖÄ»ÊıµÄ°Ù·Ö±È
+                // è®¡ç®—æ–‡æœ¬ä¿®æ”¹å­—å¹•æ•°çš„ç™¾åˆ†æ¯”
                 const textModificationRate = totalTotalSubtitles > 0 ? ((totalModifiedSubtitles / totalTotalSubtitles) * 100).toFixed(2) : 0;
 
-                // ¶Ô¼¯ÊıÁĞ±í½øĞĞÅÅĞò
+                // å¯¹é›†æ•°åˆ—è¡¨è¿›è¡Œæ’åº
                 const sortedUnchanged = sortFileNames(unchangedEpisodes);
                 const sortedMinorModified = sortFileNames(minorModifiedEpisodes);
 
                 totalStatsDiv.innerHTML = `
-                    <h3>×ÜÍ³¼ÆĞÅÏ¢</h3>
-                    <div>×Ü¼¯Êı: ${grandTotalEpisodes}</div>
-                    <div>ÒÑ¶Ô±È¼¯Êı: ${totalEpisodes}</div>
-                    <div>È±ÉÙ·­ÒëÎÄ¼şµÄ¼¯Êı: ${totalMissingEpisodes}</div>
-                    <div>Î´ĞŞ¸Ä¼¯Êı: ${totalUnchangedEpisodes} (${sortedUnchanged.join(', ')})</div>
-                    <div>ÒÑĞŞ¸Ä¼¯Êı: ${totalModifiedEpisodes}</div>
-                    <div>ĞŞ¸ÄÂÊ: ${modificationRate}%</div>
-                    <div>ÇáÎ¢ĞŞ¸Ä¼¯Êı£¨½ö±êµã¡¢¿Õ¸ñ¡¢»»ĞĞ£©: ${totalMinorModifiedEpisodes} (${minorModificationRate}%) (${sortedMinorModified.join(', ')})</div>
-                    <div>È«¼¯×Ü×ÖÄ»Êı: ${totalTotalSubtitles}</div>
-                    <div>ÒÑĞŞ¸Ä×ÖÄ»Êı: ${allModifiedSubtitles} (${allModifiedRate}%)</div>
-                    <div>ÎÄ±¾ĞŞ¸Ä×ÖÄ»Êı: ${totalModifiedSubtitles} (${textModificationRate}%)</div>
-                    <div>±êµãĞŞ¸Ä×ÖÄ»Êı: ${totalPunctuationModifiedSubtitles} (${punctuationRate}%)</div>
-                    <div>¿Õ¸ñĞŞ¸Ä×ÖÄ»Êı: ${totalSpaceModifiedSubtitles} (${spaceRate}%)</div>
-                    <div>»»ĞĞĞŞ¸Ä×ÖÄ»Êı: ${totalLineBreakModifiedSubtitles} (${lineBreakRate}%)</div>
-                    <div>Î´ĞŞ¸Ä×ÖÄ»Êı: ${totalTotalSubtitles - allModifiedSubtitles}</div>
-                    <div>È±ÉÙ·­Òë×ÖÄ»Êı: ${totalMissingSubtitles} (${missingSubtitleRate}%)</div>
+                    <h3>æ€»ç»Ÿè®¡ä¿¡æ¯</h3>
+                    <div>æ€»é›†æ•°: ${grandTotalEpisodes}</div>
+                    <div>å·²å¯¹æ¯”é›†æ•°: ${totalEpisodes}</div>
+                    <div>ç¼ºå°‘ç¿»è¯‘æ–‡ä»¶çš„é›†æ•°: ${totalMissingEpisodes}</div>
+                    <div>æœªä¿®æ”¹é›†æ•°: ${totalUnchangedEpisodes} (${sortedUnchanged.join(', ')})</div>
+                    <div>å·²ä¿®æ”¹é›†æ•°: ${totalModifiedEpisodes}</div>
+                    <div>ä¿®æ”¹ç‡: ${modificationRate}%</div>
+                    <div>è½»å¾®ä¿®æ”¹é›†æ•°ï¼ˆä»…æ ‡ç‚¹ã€ç©ºæ ¼ã€æ¢è¡Œï¼‰: ${totalMinorModifiedEpisodes} (${minorModificationRate}%) (${sortedMinorModified.join(', ')})</div>
+                    <div>å…¨é›†æ€»å­—å¹•æ•°: ${totalTotalSubtitles}</div>
+                    <div>å·²ä¿®æ”¹å­—å¹•æ•°: ${allModifiedSubtitles} (${allModifiedRate}%)</div>
+                    <div>æ–‡æœ¬ä¿®æ”¹å­—å¹•æ•°: ${totalModifiedSubtitles} (${textModificationRate}%)</div>
+                    <div>æ ‡ç‚¹ä¿®æ”¹å­—å¹•æ•°: ${totalPunctuationModifiedSubtitles} (${punctuationRate}%)</div>
+                    <div>ç©ºæ ¼ä¿®æ”¹å­—å¹•æ•°: ${totalSpaceModifiedSubtitles} (${spaceRate}%)</div>
+                    <div>æ¢è¡Œä¿®æ”¹å­—å¹•æ•°: ${totalLineBreakModifiedSubtitles} (${lineBreakRate}%)</div>
+                    <div>æœªä¿®æ”¹å­—å¹•æ•°: ${totalTotalSubtitles - allModifiedSubtitles}</div>
+                    <div>ç¼ºå°‘ç¿»è¯‘å­—å¹•æ•°: ${totalMissingSubtitles} (${missingSubtitleRate}%)</div>
                 `;
                 
                 resultContainer.appendChild(totalStatsDiv);
@@ -690,14 +691,14 @@
                     
                     if (missing) {
                         episodeDiv.innerHTML = `
-                            <div class="episode-title">${fileName} - È±ÉÙ¶ÔÓ¦µÄ·­ÒëÎÄ¼ş</div>
-                            <p>Î´ÕÒµ½Óë ${fileName} ¶ÔÓ¦µÄ·­ÒëÎÄ¼ş</p>
+                            <div class="episode-title">${fileName} - ç¼ºå°‘å¯¹åº”çš„ç¿»è¯‘æ–‡ä»¶</div>
+                            <p>æœªæ‰¾åˆ°ä¸ ${fileName} å¯¹åº”çš„ç¿»è¯‘æ–‡ä»¶</p>
                         `;
                     } else {
                         const { totalSubtitles, modifiedSubtitles, punctuationModified, spaceModified, lineBreakModified, originalCharacters, translatedCharacters, 
                                missingSubtitles, extraSubtitles, subtitles, modificationRate, punctuationModificationRate, spaceModificationRate, lineBreakModificationRate, characterChangeRate } = comparisonResult;
     
-               // ¼ÆËãÎÄ±¾ĞŞ¸Ä×ÖÄ»ÊıµÄ°Ù·Ö±È
+               // è®¡ç®—æ–‡æœ¬ä¿®æ”¹å­—å¹•æ•°çš„ç™¾åˆ†æ¯”
                 const textModificationRate = totalSubtitles > 0 ? ((modifiedSubtitles / totalSubtitles) * 100).toFixed(2) : 0;
              
                         const table = document.createElement('table');
@@ -706,12 +707,12 @@
                         table.innerHTML = `
                             <thead>
                                 <tr>
-                                    <th>×ÖÄ»ĞòºÅ</th>
-                                    <th>Ô­Ê¼Ê±¼äÖá</th>
-                                    <th>Ô­Ê¼ÎÄ±¾</th>
-                                    <th>·­ÒëÊ±¼äÖá</th>
-                                    <th>·­ÒëÎÄ±¾</th>
-                                    <th>ĞŞ¸ÄÇé¿ö</th>
+                                    <th>å­—å¹•åºå·</th>
+                                    <th>åŸå§‹æ—¶é—´è½´</th>
+                                    <th>åŸå§‹æ–‡æœ¬</th>
+                                    <th>ç¿»è¯‘æ—¶é—´è½´</th>
+                                    <th>ç¿»è¯‘æ–‡æœ¬</th>
+                                    <th>ä¿®æ”¹æƒ…å†µ</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -733,17 +734,17 @@
                         const statsDiv = document.createElement('div');
                         statsDiv.className = 'episode-stats';
                         statsDiv.innerHTML = `
-                            <div>µ¥¼¯×ÖÄ»Êı: ${totalSubtitles}</div>
-                            <div>×ÜÒÑĞŞ¸Ä×ÖÄ»Êı: ${modifiedSubtitles + punctuationModified + spaceModified + lineBreakModified} (${modificationRate}%)</div>
-                            <div>ÎÄ±¾ĞŞ¸Ä×ÖÄ»Êı: ${modifiedSubtitles} (${textModificationRate}%)</div>
-                            <div>±êµãĞŞ¸Ä×ÖÄ»Êı: ${punctuationModified} (${punctuationModificationRate}%)</div>
-                            <div>¿Õ¸ñĞŞ¸Ä×ÖÄ»Êı: ${spaceModified} (${spaceModificationRate}%)</div>
-                            <div>»»ĞĞĞŞ¸Ä×ÖÄ»Êı: ${lineBreakModified} (${lineBreakModificationRate}%)</div>
-                            <div>Î´ĞŞ¸Ä×ÖÄ»Êı: ${totalSubtitles - (modifiedSubtitles + punctuationModified + spaceModified + lineBreakModified)}</div>
-                            <div>È±ÉÙ·­Òë×ÖÄ»Êı: ${missingSubtitles}</div>
-                            <div>Ô­Ê¼×Ö·û×ÜÊı: ${originalCharacters}</div>
-                            <div>·­Òë×Ö·û×ÜÊı: ${translatedCharacters}</div>
-                            <div>×Ö·ûĞŞ¸Ä°Ù·Ö±È: ${characterChangeRate}%</div>
+                            <div>å•é›†å­—å¹•æ•°: ${totalSubtitles}</div>
+                            <div>æ€»å·²ä¿®æ”¹å­—å¹•æ•°: ${modifiedSubtitles + punctuationModified + spaceModified + lineBreakModified} (${modificationRate}%)</div>
+                            <div>æ–‡æœ¬ä¿®æ”¹å­—å¹•æ•°: ${modifiedSubtitles} (${textModificationRate}%)</div>
+                            <div>æ ‡ç‚¹ä¿®æ”¹å­—å¹•æ•°: ${punctuationModified} (${punctuationModificationRate}%)</div>
+                            <div>ç©ºæ ¼ä¿®æ”¹å­—å¹•æ•°: ${spaceModified} (${spaceModificationRate}%)</div>
+                            <div>æ¢è¡Œä¿®æ”¹å­—å¹•æ•°: ${lineBreakModified} (${lineBreakModificationRate}%)</div>
+                            <div>æœªä¿®æ”¹å­—å¹•æ•°: ${totalSubtitles - (modifiedSubtitles + punctuationModified + spaceModified + lineBreakModified)}</div>
+                            <div>ç¼ºå°‘ç¿»è¯‘å­—å¹•æ•°: ${missingSubtitles}</div>
+                            <div>åŸå§‹å­—ç¬¦æ€»æ•°: ${originalCharacters}</div>
+                            <div>ç¿»è¯‘å­—ç¬¦æ€»æ•°: ${translatedCharacters}</div>
+                            <div>å­—ç¬¦ä¿®æ”¹ç™¾åˆ†æ¯”: ${characterChangeRate}%</div>
                         `;
                         
                         episodeDiv.innerHTML = `
@@ -768,4 +769,5 @@
         }
     </script>
 </body>
+
 </html>
