@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRT字幕名词出现集数统计工具</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, Helvetica, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        h1 {
+            color: #1a1a1a;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .container {
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .upload-section, .terms-section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        h2 {
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+            margin-top: 0;
+            color: #555;
+        }
+        input[type="file"], textarea {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        button {
+            background: #4CAF50;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        
+        /* Tab 样式 */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            color: #555;
+            background-color: #e9ecef;
+            border: none;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            transition: background-color 0.3s, color 0.3s;
+            position: relative;
+            top: 2px;
+        }
+        .tab-button.active {
+            background-color: #fff;
+            color: #4CAF50;
+            border: 2px solid #ddd;
+            border-bottom: none;
+            top: 0;
+        }
+        .tab-content {
+            display: none;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        .summary-item {
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+        .term-group-summary {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #e0e0e0;
+        }
+        .episode-group {
+            margin-bottom: 15px;
+            margin-left: 15px;
+        }
+        .episode-group h4 {
+            font-size: 1.1em;
+            color: #007acc;
+            margin: 0 0 10px 0;
+        }
+        .timeline {
+            font-size: 0.95em;
+            color: #555;
+            margin-left: 20px;
+            padding-left: 0;
+            list-style-type: none;
+        }
+        .timeline li {
+            position: relative;
+            margin-bottom: 8px;
+        }
+        .timeline li::before {
+            content: '•';
+            position: absolute;
+            left: -15px;
+            top: 0;
+            color: #999;
+            font-size: 1.2em;
+        }
+        .highlight {
+            color: #d9534f;
+            font-weight: bold;
+        }
+        .missing-term {
+            color: #d9534f;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>字幕文件名词出现集数统计工具</h1>
+
+    <div class="container">
+        <div class="upload-section">
+            <h2>上传字幕文件</h2>
+            <p>请上传多个SRT字幕文件（每集一个文件）：</p>
+            <input type="file" id="srtFiles" multiple accept=".srt">
+            <p><small>提示：请确保每个SRT文件的文件名包含集数信息（如 "01.srt", "第10集.srt" 等），以便正确识别集数。</small></p>
+        </div>
+
+        <div class="terms-section">
+            <h2>输入要查找的名词/术语</h2>
+            <p>请输入要查找的名词或术语，每个术语占一行：</p>
+            <textarea id="termsInput" placeholder="示例：嫂子&#10;大小姐"></textarea>
+        </div>
+
+        <button id="analyzeBtn">开始分析</button>
+        <button id="clearBtn">清空输入</button>
+    </div>
+
+    <div class="results-section">
+        <h2>分析结果</h2>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="handleTabClick('tab1', this)">【按名词查看结果】</button>
+            <button class="tab-button" onclick="handleTabClick('tab2', this)">【按名词详情查看结果】</button>
+            <button class="tab-button" onclick="handleTabClick('tab3', this)">【按集查看结果】</button>
+        </div>
+
+        <div id="tab1" class="tab-content active">
+            <div id="summaryResultsContainer"></div>
+        </div>
+
+        <div id="tab2" class="tab-content">
+            <div id="detailResultsContainer"></div>
+        </div>
+
+        <div id="tab3" class="tab-content">
+            <div id="episodeResultsContainer"></div>
+        </div>
+    </div>
+
+<script>
+    function handleTabClick(tabId, clickedButton) {
+        // 移除所有按钮和内容的 active 类
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+        // 将 active 类添加到被点击的按钮和对应的内容
+        clickedButton.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const srtFilesInput = document.getElementById('srtFiles');
+        const termsInput = document.getElementById('termsInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const summaryResultsContainer = document.getElementById('summaryResultsContainer');
+        const detailResultsContainer = document.getElementById('detailResultsContainer');
+        const episodeResultsContainer = document.getElementById('episodeResultsContainer');
+
+        let srtFiles = [];
+        let parsedFiles = [];
+
+        srtFilesInput.addEventListener('change', e => {
+            srtFiles = Array.from(e.target.files).map(file => {
+                const fn = file.name.toLowerCase();
+                let epMatch = fn.match(/(\d+)\.srt/) || fn.match(/第(\d+)集/) || fn.match(/e(\d+)\./) || fn.match(/ep(\d+)\./);
+                let ep = epMatch ? epMatch[1] : '';
+                return { file, episodeNumber: ep, originalFilename: file.name };
+            }).sort((a, b) => {
+                const epA = parseInt(a.episodeNumber);
+                const epB = parseInt(b.episodeNumber);
+                return epA - epB;
+            });
+        });
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (!srtFiles.length) return alert('请先上传字幕文件');
+            const terms = termsInput.value.trim().split('\n').filter(Boolean).map(term => term.trim());
+            if (!terms.length) return alert('请输入要查找的名词或术语');
+
+            summaryResultsContainer.innerHTML = '';
+            detailResultsContainer.innerHTML = '';
+            episodeResultsContainer.innerHTML = '';
+
+            parsedFiles = await Promise.all(srtFiles.map(async f => {
+                const text = await f.file.text();
+                const blocks = text.split(/\r?\n\s*\r?\n/).filter(b => b.trim());
+                const subs = blocks.map(b => {
+                    const lines = b.split(/\r?\n/);
+                    const idx = lines[0].trim();
+                    const time = lines[1].trim();
+                    const textContent = lines.slice(2).join(' ').trim();
+                    return { idx, time, text: textContent };
+                });
+                return { ...f, subs };
+            }));
+
+            const epMap = new Map();
+            const termDataMap = new Map();
+            const epDataMap = new Map();
+
+            parsedFiles.forEach(p => {
+                if (p.episodeNumber) {
+                    epMap.set(p.episodeNumber, { subs: p.subs, filename: p.originalFilename });
+                }
+            });
+
+            epMap.forEach(({ subs }, ep) => {
+                const matchesInEp = [];
+                terms.forEach(term => {
+                    subs.forEach(({ idx, time, text }) => {
+                        const originalText = text;
+                        if (originalText.toLowerCase().includes(term.toLowerCase())) {
+                            if (!termDataMap.has(term)) {
+                                termDataMap.set(term, {
+                                    episodes: new Set(),
+                                    detailsByEpisode: new Map()
+                                });
+                            }
+                            const termData = termDataMap.get(term);
+                            termData.episodes.add(ep);
+
+                            if (!termData.detailsByEpisode.has(ep)) {
+                                termData.detailsByEpisode.set(ep, []);
+                            }
+                            const [startTime, endTime] = time.split(' --> ');
+                            termData.detailsByEpisode.get(ep).push({ idx, time: `${startTime} --> ${endTime}`, text: originalText });
+
+                            const highlightText = originalText.replace(new RegExp(`(${term})`, 'gi'), `<span class="highlight">$1</span>`);
+                            matchesInEp.push({ term, idx, time, text: highlightText });
+                        }
+                    });
+                });
+
+                matchesInEp.sort((a, b) => parseInt(a.idx) - parseInt(b.idx));
+                epDataMap.set(ep, { matches: matchesInEp });
+            });
+
+            terms.forEach(term => {
+                const termData = termDataMap.has(term) ? termDataMap.get(term) : { episodes: new Set(), detailsByEpisode: new Map() };
+                renderSummary(termData, term);
+                renderDetails(termData, term);
+            });
+            
+            renderEpisodeView(epDataMap, parsedFiles);
+        });
+
+        clearBtn.addEventListener('click', () => {
+            srtFilesInput.value = termsInput.value = '';
+            summaryResultsContainer.innerHTML = '';
+            detailResultsContainer.innerHTML = '';
+            episodeResultsContainer.innerHTML = '';
+            srtFiles = [];
+            parsedFiles = [];
+        });
+
+        function renderSummary(termData, term) {
+            const div = document.createElement('div');
+            div.className = 'summary-item';
+            const mainTermEpisodes = [...termData.episodes].sort((a, b) => parseInt(a) - parseInt(b));
+            div.innerHTML = mainTermEpisodes.length
+                ? `<strong>${term}：</strong>在 ${mainTermEpisodes.join('、')} 集出现，共 ${mainTermEpisodes.length} 集出现`
+                : `<strong class="missing-term">${term}：</strong>没有出现`;
+            summaryResultsContainer.appendChild(div);
+        }
+
+        function renderDetails(termData, term) {
+            const div = document.createElement('div');
+            const mainTermEpisodes = [...termData.episodes].sort((a, b) => parseInt(a) - parseInt(b));
+            const mainTermHtml = mainTermEpisodes.length
+                ? `<strong class="highlight">${term}：</strong>在 ${mainTermEpisodes.join('、')} 集出现，共 ${mainTermEpisodes.length} 集出现`
+                : `<strong class="missing-term">${term}：</strong>没有出现`;
+
+            let html = `<div class="term-group-summary">${mainTermHtml}</div>`;
+            if (mainTermEpisodes.length) {
+                mainTermEpisodes.forEach(ep => {
+                    const details = termData.detailsByEpisode.get(ep);
+                    if (details) {
+                        html += `<div class="episode-group"><h4>第${ep}集</h4>`;
+                        html += `<ul class="timeline">`;
+                        details.forEach(d => {
+                            const highlightText = d.text.replace(new RegExp(`(${term})`, 'gi'), `<span class="highlight">$1</span>`);
+                            html += `<li>${d.idx} ${d.time} ${highlightText}</li>`;
+                        });
+                        html += `</ul></div>`;
+                    }
+                });
+            }
+            div.innerHTML = html;
+            detailResultsContainer.appendChild(div);
+        }
+
+        function renderEpisodeView(epDataMap, allParsedFiles) {
+            allParsedFiles.forEach(file => {
+                const ep = file.episodeNumber;
+                if (!ep) return; // 忽略没有集数的文件
+
+                const epData = epDataMap.get(ep);
+                const div = document.createElement('div');
+
+                if (epData && epData.matches.length > 0) {
+                    const termsInEp = [...new Set(epData.matches.map(m => m.term))];
+                    const termsText = termsInEp.join('、');
+                    div.innerHTML = `<p><strong>第${ep}集：</strong> 出现 ${termsText} 在这集</p>`;
+                    
+                    const timelineHtml = `<ul class="timeline">` + epData.matches.map(m => {
+                        return `<li>${m.idx} ${m.time} ${m.text}</li>`;
+                    }).join('') + `</ul>`;
+                    div.innerHTML += timelineHtml;
+                } else {
+                    div.innerHTML = `<p><strong>第${ep}集：</strong> 没有出现</p>`;
+                }
+                episodeResultsContainer.appendChild(div);
+            });
+        }
+    });
+</script>
+
+</body>
+</html>
