@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量SRT时间轴检测工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .container {
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .file-input {
+            margin-bottom: 20px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .file-name {
+            font-weight: bold;
+            color: #212529;
+        }
+        .file-result-container {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .action-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .action-button:hover {
+            background-color: #0056b3;
+        }
+        #progress {
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>批量SRT时间轴检测工具</h1>
+    
+    <div class="container">
+        <div class="file-input">
+            <label for="srtFiles">选择多个SRT文件：</label>
+            <input type="file" id="srtFiles" accept=".srt" multiple>
+            <button id="detectButton" class="action-button" disabled>开始检测</button>
+        </div>
+        
+        <div id="progress">
+            <progress id="progressBar" value="0" max="100"></progress>
+            <span id="progressText">0% 完成</span>
+        </div>
+        
+        <div id="resultsContainer"></div>
+        
+        <div class="summary" id="summary"></div>
+    </div>
+    
+    <script>
+        const fileInput = document.getElementById('srtFiles');
+        const detectButton = document.getElementById('detectButton');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const summaryDiv = document.getElementById('summary');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressContainer = document.getElementById('progress');
+        
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files.length > 0) {
+                detectButton.disabled = false;
+            } else {
+                detectButton.disabled = true;
+            }
+        });
+        
+        detectButton.addEventListener('click', function() {
+            const files = fileInput.files;
+            if (!files || files.length === 0) return;
+            
+            const totalFiles = files.length;
+            let processedFiles = 0;
+            let filesWithError = 0;
+            const errorFilesList = [];
+            
+            progressContainer.style.display = 'block';
+            progressBar.value = 0;
+            
+            // 清空之前的结果
+            resultsContainer.innerHTML = '';
+            summaryDiv.innerHTML = '';
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    const srtContent = event.target.result;
+                    const fileResultDiv = document.createElement('div');
+                    fileResultDiv.className = 'file-result-container';
+                    
+                    // 显示文件名
+                    const fileNameSpan = document.createElement('div');
+                    fileNameSpan.className = 'file-name';
+                    fileNameSpan.textContent = `文件: ${file.name}`;
+                    fileResultDiv.appendChild(fileNameSpan);
+                    
+                    // 检查SRT内容
+                    const checkResult = checkSrtTimeAxis(srtContent);
+                    
+                    if (checkResult.errorLines.length > 0) {
+                        fileResultDiv.classList.add('error');
+                        fileResultDiv.appendChild(document.createElement('br'));
+                        
+                        const lineNumbersDiv = document.createElement('div');
+                        lineNumbersDiv.textContent = `超过5分钟的时间轴出现在以下行数: ${checkResult.errorLines.join(', ')}`;
+                        fileResultDiv.appendChild(lineNumbersDiv);
+                        filesWithError++;
+                        errorFilesList.push(file.name);
+                    } else {
+                        fileResultDiv.classList.add('success');
+                        fileResultDiv.appendChild(document.createElement('br'));
+                        
+                        const successMsg = document.createElement('div');
+                        successMsg.textContent = "全部srt：没超过5分钟";
+                        fileResultDiv.appendChild(successMsg);
+                    }
+                    
+                    // 显示解析结果
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.style.marginTop = '10px';
+                    
+                    const detailHeader = document.createElement('h4');
+                    detailHeader.textContent = '详细解析结果:';
+                    detailsDiv.appendChild(detailHeader);
+                    
+                    const detailList = document.createElement('ul');
+                    checkResult.details.forEach(detail => {
+                        const li = document.createElement('li');
+                        li.textContent = detail;
+                        detailList.appendChild(li);
+                    });
+                    
+                    detailsDiv.appendChild(detailList);
+                    fileResultDiv.appendChild(detailsDiv);
+                    
+                    // 添加到结果容器
+                    resultsContainer.appendChild(fileResultDiv);
+                    
+                    // 更新进度条
+                    processedFiles++;
+                    const progress = (processedFiles / totalFiles) * 100;
+                    progressBar.value = progress;
+                    
+                    progressText.textContent = `${Math.round(progress)}% 完成`;
+                    
+                    // 检测完成时更新汇总信息
+                    if (processedFiles === totalFiles) {
+                        updateSummary(filesWithError, errorFilesList);
+                        progressContainer.style.display = 'none';
+                    }
+                };
+                
+                reader.readAsText(file);
+            }
+        });
+        
+        function updateSummary(filesWithError, errorFilesList) {
+            summaryDiv.innerHTML = `
+                <h3>汇总结果:</h3>
+                <p>总文件数: ${fileInput.files.length}</p>
+                <p>有问题文件数: ${filesWithError}</p>
+                <p>有问题文件列表: ${errorFilesList.length > 0 ? errorFilesList.join(', ') : '无'}</p>
+            `;
+        }
+        
+        function checkSrtTimeAxis(srtContent) {
+            const lines = srtContent.split('\n');
+            const result = {
+                errorLines: [],
+                details: []
+            };
+            
+            let currentLine = 0;
+            let currentSubtitleNumber = 0;
+            
+            while (currentLine < lines.length) {
+                const line = lines[currentLine].trim();
+                
+                // 检查是否是字幕编号行
+                if (/^\d+$/.test(line)) {
+                    currentSubtitleNumber = parseInt(line);
+                    currentLine++;
+                    continue;
+                }
+                
+                // 检查是否是时间戳行
+                if (/^\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}$/.test(line)) {
+                    const [startTime, endTime] = line.split(' --> ');
+                    const startTimeMs = parseTimeToMs(startTime);
+                    const endTimeMs = parseTimeToMs(endTime);
+                    
+                    const durationMs = endTimeMs - startTimeMs;
+                    const durationMinutes = durationMs / 60000; // 转换为分钟
+                    
+                    result.details.push(`字幕${currentSubtitleNumber}: ${line} (持续时间: ${durationMinutes.toFixed(2)}分钟)`);
+                    
+                    if (durationMinutes > 5) {
+                        result.errorLines.push(currentSubtitleNumber);
+                    }
+                    
+                    currentLine++;
+                    continue;
+                }
+                
+                // 跳过空行
+                if (line === '') {
+                    currentLine++;
+                    continue;
+                }
+                
+                // 跳过文本行
+                currentLine++;
+            }
+            
+            return result;
+        }
+        
+        function parseTimeToMs(timeStr) {
+            const [timePart, msPart] = timeStr.split(',');
+            const [hours, minutes, seconds] = timePart.split(':').map(Number);
+            const milliseconds = parseInt(msPart);
+            
+            return hours * 3600000 + minutes * 60000 + seconds * 1000 + milliseconds;
+        }
+    </script>
+</body>
+</html>
