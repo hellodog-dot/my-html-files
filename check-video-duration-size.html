@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频对比工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .upload-container h2 {
+            margin-top: 0;
+        }
+        input[type="file"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        .info {
+            color: blue;
+        }
+        #results {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>视频对比工具</h1>
+    <p>此工具会检查有字幕和无字幕的尺寸和时长是否一致。</p>
+    
+    <div class="upload-container">
+        <h2>上传有字幕视频</h2>
+        <input type="file" id="subtitledVideos" multiple accept="video/*">
+    </div>
+    
+    <div class="upload-container">
+        <h2>上传无字幕视频</h2>
+        <input type="file" id="noSubtitledVideos" multiple accept="video/*">
+    </div>
+    
+    <button id="compareBtn">比较视频</button>
+    
+    <div id="results" class="result"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const subtitledInput = document.getElementById('subtitledVideos');
+            const noSubtitledInput = document.getElementById('noSubtitledVideos');
+            const compareBtn = document.getElementById('compareBtn');
+            const resultsDiv = document.getElementById('results');
+            
+            compareBtn.addEventListener('click', compareVideos);
+            
+            function compareVideos() {
+                const subtitledFiles = subtitledInput.files;
+                const noSubtitledFiles = noSubtitledInput.files;
+                
+                if (subtitledFiles.length === 0 || noSubtitledFiles.length === 0) {
+                    resultsDiv.innerHTML = '<p class="error">请上传两组视频文件</p>';
+                    return;
+                }
+                
+                if (subtitledFiles.length !== noSubtitledFiles.length) {
+                    resultsDiv.innerHTML = '<p class="error">两组视频文件数量不一致</p>';
+                    return;
+                }
+                
+                resultsDiv.innerHTML = '<p class="info">正在处理，请稍候...</p>';
+                
+                let hasErrors = false;
+                let processingCount = 0;
+                let totalCount = subtitledFiles.length;
+                
+                for (let i = 0; i < subtitledFiles.length; i++) {
+                    const subtitledFile = subtitledFiles[i];
+                    const noSubtitledFile = noSubtitledFiles[i];
+                    
+                    if (subtitledFile.name !== noSubtitledFile.name) {
+                        addResult(`<p class="error">${subtitledFile.name} 和 ${noSubtitledFile.name} 名称不一致</p>`);
+                        continue;
+                    }
+                    
+                    // 检查文件扩展名
+                    const subtitledExt = subtitledFile.name.split('.').pop().toLowerCase();
+                    const noSubtitledExt = noSubtitledFile.name.split('.').pop().toLowerCase();
+                    
+                    if (subtitledExt !== 'mp4') {
+                        addResult(`<p class="error">${subtitledFile.name} - 有字幕不是Mp4格式</p>`);
+                    }
+                    
+                    if (noSubtitledExt !== 'mp4') {
+                        addResult(`<p class="error">${noSubtitledFile.name} - 无字幕不是Mp4格式</p>`);
+                    }
+                    
+                    // 获取视频元数据
+                    Promise.all([
+                        getVideoMetadata(subtitledFile),
+                        getVideoMetadata(noSubtitledFile)
+                    ]).then(([subtitledMeta, noSubtitledMeta]) => {
+                        const name = subtitledFile.name;
+                        let result = '';
+                        
+                        if (subtitledMeta.duration !== noSubtitledMeta.duration && 
+                            (subtitledMeta.width !== noSubtitledMeta.width || 
+                             subtitledMeta.height !== noSubtitledMeta.height)) {
+                            result = `<p class="error">${name} - 时长和宽高都不一致</p>`;
+                        } else if (subtitledMeta.duration !== noSubtitledMeta.duration) {
+                            const durationDiff = Math.abs(subtitledMeta.duration - noSubtitledMeta.duration);
+                            result = `<p class="error">${name} - 时长不一致，相差 ${durationDiff} 秒</p>`;
+                        } else if (subtitledMeta.width !== noSubtitledMeta.width || 
+                                   subtitledMeta.height !== noSubtitledMeta.height) {
+                            result = `<p class="error">${name} - 宽高不一致</p>`;
+                        }
+                        
+                        if (result) {
+                            addResult(result);
+                        }
+                        
+                        checkProcessingComplete();
+                    }).catch(error => {
+                        addResult(`<p class="error">处理 ${subtitledFile.name} 时出错: ${error.message}</p>`);
+                        checkProcessingComplete();
+                    });
+                }
+                
+                function checkProcessingComplete() {
+                    processingCount++;
+                    if (processingCount === totalCount && !hasErrors) {
+                        resultsDiv.innerHTML = '<p class="success">所有视频对比一致</p>';
+                    }
+                }
+                
+                function addResult(html) {
+                    hasErrors = true;
+                    resultsDiv.innerHTML += html;
+                    checkProcessingComplete();
+                }
+            }
+            
+            function getVideoMetadata(file) {
+                return new Promise((resolve, reject) => {
+                    const video = document.createElement('video');
+                    const fileURL = URL.createObjectURL(file);
+                    
+                    video.addEventListener('loadedmetadata', function() {
+                        resolve({
+                            duration: Math.floor(video.duration),
+                            width: video.videoWidth,
+                            height: video.videoHeight
+                        });
+                        URL.revokeObjectURL(fileURL);
+                    });
+                    
+                    video.addEventListener('error', function() {
+                        reject(new Error(`无法读取视频文件: ${file.name}`));
+                        URL.revokeObjectURL(fileURL);
+                    });
+                    
+                    video.src = fileURL;
+                });
+            }
+        });
+    </script>
+</body>
+</html>
