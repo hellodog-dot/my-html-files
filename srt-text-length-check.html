@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRT 字符长度批量分析工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .file-input {
+            margin-bottom: 10px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        .summary {
+            color: red; /* 用于标记总结部分 */
+        }
+        .file-info {
+            color: red; /* 用于标记文件信息部分 */
+        }
+        .sequence-number {
+            color: red; /* 用于标记序列号部分 */
+        }
+        .instructions {
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <h1>SRT 字符长度批量分析工具</h1>
+    <div class="instructions">
+        <p><strong>使用说明：</strong></p>
+        <p>适用于以下语言：</p>
+        <ul>
+            <li>英语</li>
+            <li>法语</li>
+            <li>葡语</li>
+            <li>西语</li>
+            <li>印尼语</li>
+            <li>土耳其语</li>
+            <li>德语</li>
+            <li>意大利语</li>
+        </ul>
+        <p>规则说明：</p>
+        <ul>
+            <li>单行字幕：长度超过45个字符时标记为错误。</li>
+            <li>双行字幕：如果两行字幕都超过25个字符，标记为错误。</li>
+            <li>三行字幕：如果其中任意一行长度超过25个字符，标记为错误。</li>
+            <li>超过三行的字幕：直接标记为错误。</li>
+        </ul>
+    </div>
+    <div class="file-input">
+        <input type="file" id="fileInput" accept=".srt" multiple>
+        <button onclick="analyzeSRT()">分析</button>
+    </div>
+    <div id="result" class="result"></div>
+
+    <script>
+        function analyzeSRT() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = ''; // 清空之前的分析结果
+
+            const files = fileInput.files;
+            if (files.length === 0) {
+                resultDiv.textContent = '请先选择一个或多个SRT文件。';
+                return;
+            }
+
+            let totalResultText = '';
+            let problematicFiles = []; // 用于记录有问题的文件
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const srtContent = event.target.result;
+                    const lines = srtContent.split('\n');
+                    let currentSubtitle = [];
+                    let errorCount = 0; // 用于记录当前文件的错误行数
+                    let errorSummary = []; // 用于记录错误的详细信息
+
+                    lines.forEach((line, index) => {
+                        if (line.trim() === '' || index === lines.length - 1) {
+                            // 如果是空行或者最后一行，表示当前字幕块结束
+                            if (currentSubtitle.length > 0) {
+                                const analysisResult = checkSubtitle(currentSubtitle);
+                                if (analysisResult.startsWith('[错误]')) {
+                                    errorCount++;
+                                    errorSummary.push(analysisResult);
+                                }
+                                currentSubtitle = [];
+                            }
+                        } else {
+                            currentSubtitle.push(line.trim());
+                        }
+                    });
+
+                    // 如果当前文件有错误，记录文件名和错误信息
+                    if (errorCount > 0) {
+                        problematicFiles.push(file.name);
+                        totalResultText += `<div class="file-info">文件: ${file.name}</div>\n`;
+                        totalResultText += `<div class="file-info">集数：${file.name}</div>\n`;
+                        totalResultText += `<div class="file-info">错误行数：${errorCount}</div>\n`;
+                        totalResultText += errorSummary.join('\n') + '\n';
+                    }
+
+                    // 如果所有文件都处理完毕，显示总结
+                    if (i === files.length - 1) {
+                        if (problematicFiles.length > 0) {
+                            totalResultText = `<div class="summary">分析结果</div>\n<div class="summary">有问题的文件：${problematicFiles.join('/')}</div> \n\n${totalResultText}`;
+                        } else {
+                            totalResultText = `<div class="summary">分析结果</div>\n<div class="summary">所有文件均无错误。</div>\n`;
+                        }
+                        resultDiv.innerHTML = totalResultText.trim();
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function checkSubtitle(subtitle) {
+            const MAX_SINGLE_LINE = 45; // 单行最大长度
+            const MAX_DOUBLE_LINE = 25; // 双行或三行每行最大长度
+
+            // 跳过序号和时间戳
+            const textLines = subtitle.slice(2);
+            const sequenceNumber = subtitle[0]; // 获取序列号
+
+            if (textLines.length === 1) {
+                // 单行字幕
+                if (textLines[0].length > MAX_SINGLE_LINE) {
+                    return `[错误] <div class="sequence-number">序列号${sequenceNumber}</div>，错误 - 单行字符长度(${textLines[0].length})超过45个字符限制\n${subtitle.join('\n')}`;
+                }
+            } else if (textLines.length === 2) {
+                // 双行字幕
+                if (textLines[0].length > MAX_DOUBLE_LINE && textLines[1].length > MAX_DOUBLE_LINE) {
+                    return `[错误] <div class="sequence-number">序列号${sequenceNumber}</div>，错误 - 两行连续字符长度(${textLines[0].length}和${textLines[1].length})都超过25个字符限制\n${subtitle.join('\n')}`;
+                }
+            } else if (textLines.length === 3) {
+                // 三行字幕
+                if (textLines.some(line => line.length > MAX_DOUBLE_LINE)) {
+                    return `[错误] <div class="sequence-number">序列号${sequenceNumber}</div>，错误 - 三行字幕中某行字符长度超过25个字符限制\n${subtitle.join('\n')}`;
+                }
+            } else {
+                // 超过三行的字幕直接判定为错误
+                return `[错误] <div class="sequence-number">序列号${sequenceNumber}</div>，错误 - 字幕行数超过3行\n${subtitle.join('\n')}`;
+            }
+
+            return ''; // 如果没有错误，返回空字符串
+        }
+    </script>
+</body>
+</html>
