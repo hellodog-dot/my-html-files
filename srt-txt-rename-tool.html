@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件扩展名批量转换工具</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7f9;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 2.2rem;
+        }
+
+        .info-box {
+            background-color: #e8f0fe;
+            border-left: 4px solid #3498db;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 5px;
+        }
+
+        .info-box p {
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        .toggle-mode {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .toggle-mode button {
+            background-color: #e9ecef;
+            color: #495057;
+            border: 1px solid #ced4da;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .toggle-mode button.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .toggle-mode button:hover {
+            background-color: #d8e6fa;
+        }
+        
+        .toggle-mode button.active:hover {
+            background-color: #0056b3;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        input[type="file"] {
+            display: block;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #download-area {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+            text-align: center;
+        }
+
+        #download-area button {
+            background-color: #2ecc71;
+        }
+
+        #download-area button:hover {
+            background-color: #27ae60;
+        }
+
+        #status {
+            margin-top: 1.5rem;
+            font-style: italic;
+            color: #555;
+            text-align: center;
+        }
+
+        .file-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 1.5rem;
+        }
+
+        .file-list li {
+            background: #f9f9f9;
+            padding: 0.75rem 1rem;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #eee;
+        }
+        
+        .file-list li.success {
+            background-color: #e9f5e9;
+            border-color: #4CAF50;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 id="main-title">文件扩展名批量转换工具</h1>
+
+    <div class="toggle-mode">
+        <button id="mode-txt-to-srt" class="active">TXT 转 SRT</button>
+        <button id="mode-srt-to-txt">SRT 转 TXT</button>
+    </div>
+
+    <div class="info-box">
+        <p><strong>使用说明:</strong></p>
+        <p id="info-text">此工具将您选择的TXT文件内容不变，仅在打包下载时将文件名扩展名从 **.txt** 修改为 **.srt**。</p>
+    </div>
+
+    <div class="form-group">
+        <label for="input-files" id="file-label">选择TXT文件 (可多选):</label>
+        <input type="file" id="input-files" multiple accept=".txt">
+    </div>
+
+    <button id="process-button">开始转换</button>
+
+    <p id="status"></p>
+
+    <div id="download-area" style="display:none;">
+        <h3 id="download-title">文件已准备就绪</h3>
+        <button id="download-all-button">打包下载</button>
+        <ul id="file-status-list" class="file-list"></ul>
+    </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<script>
+    const txtToSrtBtn = document.getElementById('mode-txt-to-srt');
+    const srtToTxtBtn = document.getElementById('mode-srt-to-txt');
+    const fileInput = document.getElementById('input-files');
+    const processBtn = document.getElementById('process-button');
+    const statusElement = document.getElementById('status');
+    const downloadArea = document.getElementById('download-area');
+    const fileStatusList = document.getElementById('file-status-list');
+    const infoText = document.getElementById('info-text');
+    const fileLabel = document.getElementById('file-label');
+    const downloadButton = document.getElementById('download-all-button');
+
+    let currentMode = 'txtToSrt'; // 默认模式
+
+    function updateUI(mode) {
+        currentMode = mode;
+        if (mode === 'txtToSrt') {
+            txtToSrtBtn.classList.add('active');
+            srtToTxtBtn.classList.remove('active');
+            infoText.innerHTML = '此工具将您选择的TXT文件内容不变，仅在打包下载时将文件名扩展名从 **.txt** 修改为 **.srt**。';
+            fileLabel.textContent = '选择TXT文件 (可多选):';
+            fileInput.accept = '.txt';
+            processBtn.textContent = '开始转换';
+        } else {
+            srtToTxtBtn.classList.add('active');
+            txtToSrtBtn.classList.remove('active');
+            infoText.innerHTML = '此工具将您选择的SRT文件内容不变，仅在打包下载时将文件名扩展名从 **.srt** 修改为 **.txt**。';
+            fileLabel.textContent = '选择SRT文件 (可多选):';
+            fileInput.accept = '.srt';
+            processBtn.textContent = '开始转换';
+        }
+
+        // 重置状态
+        statusElement.textContent = '';
+        downloadArea.style.display = 'none';
+        fileInput.value = '';
+    }
+
+    txtToSrtBtn.addEventListener('click', () => updateUI('txtToSrt'));
+    srtToTxtBtn.addEventListener('click', () => updateUI('srtToTxt'));
+    processBtn.addEventListener('click', processFiles);
+
+    function processFiles() {
+        const files = fileInput.files;
+        
+        statusElement.textContent = '';
+        downloadArea.style.display = 'none';
+        fileStatusList.innerHTML = '';
+        processBtn.disabled = true;
+        processBtn.textContent = '处理中...';
+
+        if (files.length === 0) {
+            statusElement.textContent = `请选择${currentMode === 'txtToSrt' ? 'TXT' : 'SRT'}文件。`;
+            processBtn.disabled = false;
+            processBtn.textContent = '开始转换';
+            return;
+        }
+
+        const zip = new JSZip();
+        
+        const filePromises = Array.from(files).map(file => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const fileContent = e.target.result;
+                    let newFileName;
+                    if (currentMode === 'txtToSrt') {
+                        newFileName = file.name.replace(/\.txt$/i, '.srt');
+                    } else {
+                        newFileName = file.name.replace(/\.srt$/i, '.txt');
+                    }
+                    zip.file(newFileName, fileContent);
+                    resolve({ name: file.name, newName: newFileName });
+                };
+                reader.onerror = () => {
+                    resolve({ name: file.name, error: '读取失败' });
+                };
+                reader.readAsText(file);
+            });
+        });
+
+        Promise.all(filePromises).then(results => {
+            results.forEach(result => {
+                const li = document.createElement('li');
+                if (result.error) {
+                    li.textContent = `${result.name} - 处理失败: ${result.error}`;
+                } else {
+                    li.textContent = `${result.name} -> ${result.newName}`;
+                    li.classList.add('success');
+                }
+                fileStatusList.appendChild(li);
+            });
+
+            statusElement.textContent = `所有文件已准备好。`;
+            downloadArea.style.display = 'block';
+            processBtn.disabled = false;
+            processBtn.textContent = '开始转换';
+            
+            downloadButton.onclick = () => {
+                let zipFileName;
+                if (currentMode === 'txtToSrt') {
+                    zipFileName = "srt_files.zip";
+                } else {
+                    zipFileName = "txt_files.zip";
+                }
+
+                zip.generateAsync({ type: "blob" })
+                    .then(function(content) {
+                        saveAs(content, zipFileName);
+                    });
+            };
+        });
+    }
+
+    // 初始加载时设置默认UI
+    updateUI(currentMode);
+</script>
+</body>
+</html>
