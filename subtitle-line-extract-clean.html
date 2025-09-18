@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台词提取与清洗工具</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #file-upload-container, #analysis-container, #download-container, #output-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        #file-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        .button-group button {
+            flex-grow: 1;
+        }
+        button {
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+        }
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: "Courier New", Courier, monospace;
+        }
+        .output-header {
+            font-weight: bold;
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #007bff;
+        }
+        #analysis-result {
+            font-weight: bold;
+        }
+        .analysis-success {
+            color: #28a745;
+        }
+        .analysis-warning {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <h1>台词提取与清洗工具</h1>
+
+    <div id="file-upload-container">
+        <label for="file-input">第一步：批量上传多集txt</label>
+        <input type="file" id="file-input" multiple accept=".txt">
+    </div>
+    
+    <div id="download-container" style="display: none;">
+        <label>第二步：下载处理后的文件</label>
+        <div class="button-group">
+            <button id="download-combined-button">下载合集txt</button>
+            <button id="download-separate-txt-button">下载分集txt (压缩包)</button>
+            <button id="download-separate-srt-button">下载分集srt (压缩包)</button>
+        </div>
+    </div>
+    
+    <div id="analysis-container" style="display: none;">
+        <label>第三步：处理结果分析</label>
+        <div id="analysis-result"></div>
+    </div>
+    
+    <div id="output-container">
+        <label>第四步：处理结果预览</label>
+        <pre id="output"></pre>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('file-input');
+            const outputElement = document.getElementById('output');
+            const analysisContainer = document.getElementById('analysis-container');
+            const analysisResultElement = document.getElementById('analysis-result');
+            const downloadContainer = document.getElementById('download-container');
+            const downloadCombinedButton = document.getElementById('download-combined-button');
+            const downloadSeparateTxtButton = document.getElementById('download-separate-txt-button');
+            const downloadSeparateSrtButton = document.getElementById('download-separate-srt-button');
+            
+            let processedFiles = {};
+            let missingFiles = [];
+
+            fileInput.addEventListener('change', handleFiles);
+            downloadCombinedButton.addEventListener('click', downloadCombinedFile);
+            downloadSeparateTxtButton.addEventListener('click', downloadSeparateTxtFiles);
+            downloadSeparateSrtButton.addEventListener('click', downloadSeparateSrtFiles);
+
+            function handleFiles() {
+                const files = fileInput.files;
+                if (files.length === 0) {
+                    outputElement.textContent = '请选择文件。';
+                    analysisContainer.style.display = 'none';
+                    downloadContainer.style.display = 'none';
+                    return;
+                }
+
+                outputElement.textContent = '';
+                processedFiles = {};
+                missingFiles = [];
+                
+                const sortedFiles = Array.from(files).sort((a, b) => {
+                    const aNum = parseInt(a.name.match(/\d+/)?.[0], 10) || 0;
+                    const bNum = parseInt(b.name.match(/\d+/)?.[0], 10) || 0;
+                    return aNum - bNum;
+                });
+
+                let processedCount = 0;
+                sortedFiles.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const content = e.target.result;
+                        const processedContent = processText(content);
+                        if (processedContent.includes('未找到')) {
+                            missingFiles.push(file.name);
+                        }
+                        processedFiles[file.name] = processedContent;
+                        displayOutput(file.name, processedContent);
+                        processedCount++;
+
+                        if (processedCount === sortedFiles.length) {
+                            updateAnalysis();
+                            downloadContainer.style.display = 'block';
+                        }
+                    };
+                    reader.onerror = () => {
+                        outputElement.textContent = '文件读取失败。';
+                    };
+                    reader.readAsText(file, 'UTF-8');
+                });
+            }
+
+            /* ======  核心改动：一次性写死所有已知格式  ====== */
+            function processText(text) {
+                // 所有可能的“标题”正则，顺序从前到后越写越宽松
+                const patterns = [
+                    /^#*\s*6\s*[\.\s]\s*台词逐字稿\s*[:：]?/m,      // #6.台词逐字稿 / 6. 台词逐字稿:
+                    /^#+\s*台词逐字稿\s*[:：]?/m,                  // #台词逐字稿 / ## 台词逐字稿
+                    /^#\s*6\s*[\.\s]\s*台词逐字稿\s*[:：]?/m,       // # 6. 台词逐字稿
+                    /^#+\s*\d*\s*[\.\s]*台词逐字稿\s*[:：]?/m       // 最宽松：前面允许任意数量#、任意数字、点号、空格
+                ];
+
+                let headerLine = null;
+                let hitPattern = null;
+
+                // 先精确匹配，命中即停
+                for (const p of patterns) {
+                    const m = text.match(p);
+                    if (m) {
+                        headerLine = m[0];
+                        hitPattern = p;
+                        break;
+                    }
+                }
+
+                if (!headerLine) return '未找到 "台词逐字稿" 部分。';
+
+                // 把正文截出来：去掉标题行本身，再往后直到下一个“# 数字.”或文末
+                const startIdx = text.indexOf(headerLine) + headerLine.length;
+                let body = text.slice(startIdx);
+                const endMatch = body.match(/\n\s*#+\s*\d+[\.\s]/);
+                if (endMatch) body = body.slice(0, endMatch.index);
+
+                const lines = body.split('\n').filter(l => l.trim() !== '');
+                let cleanedOutput = '';
+                lines.forEach(line => {
+                    const lineRegex = /^(\d+)\s+([\d:,]+\s*-->\s*[\d:,]+).*】:\s*(.*)/;
+                    const m = line.match(lineRegex);
+                    if (m) {
+                        cleanedOutput += `${m[1]}\n${m[2]}\n${m[3].trim()}\n\n`;
+                    }
+                });
+
+                return cleanedOutput.trim() || '未找到符合格式的台词行。';
+            }
+            /* =================================================== */
+
+            function displayOutput(fileName, content) {
+                const header = document.createElement('div');
+                header.className = 'output-header';
+                header.textContent = `--- 处理结果：${fileName} ---`;
+                outputElement.appendChild(header);
+                
+                const preContent = document.createTextNode(content);
+                outputElement.appendChild(preContent);
+                outputElement.appendChild(document.createTextNode('\n\n'));
+            }
+
+            function updateAnalysis() {
+                analysisContainer.style.display = 'block';
+                if (missingFiles.length === 0) {
+                    analysisResultElement.textContent = '✔️ 所有文件都已成功提取 "台词逐字稿"。';
+                    analysisResultElement.className = 'analysis-success';
+                } else {
+                    analysisResultElement.innerHTML = `⚠️ 以下文件未找到 "台词逐字稿" 部分：<br/>- ${missingFiles.join('<br/>- ')}`;
+                    analysisResultElement.className = 'analysis-warning';
+                }
+            }
+
+            function downloadCombinedFile() {
+                let combinedContent = '';
+                for (const fileName in processedFiles) {
+                    if (Object.hasOwnProperty.call(processedFiles, fileName)) {
+                        combinedContent += `--- ${fileName} ---\n\n`;
+                        combinedContent += processedFiles[fileName] + '\n\n';
+                    }
+                }
+                const blob = new Blob([combinedContent], { type: 'text/plain;charset=utf-8' });
+                saveAs(blob, '所有台词合集.txt');
+            }
+
+            async function downloadSeparateTxtFiles() {
+                const zip = new JSZip();
+                for (const fileName in processedFiles) {
+                    if (Object.hasOwnProperty.call(processedFiles, fileName)) {
+                        const newFileName = fileName;
+                        const content = processedFiles[fileName];
+                        zip.file(newFileName, content);
+                    }
+                }
+                const content = await zip.generateAsync({ type: 'blob' });
+                saveAs(content, '分集台词.zip');
+            }
+
+            async function downloadSeparateSrtFiles() {
+                const zip = new JSZip();
+                for (const fileName in processedFiles) {
+                    if (Object.hasOwnProperty.call(processedFiles, fileName)) {
+                        // 将文件名从 .txt 改为 .srt
+                        const newFileName = fileName.replace(/\.txt$/, '.srt');
+                        const content = processedFiles[fileName];
+                        zip.file(newFileName, content);
+                    }
+                }
+                const content = await zip.generateAsync({ type: 'blob' });
+                saveAs(content, '分集字幕(srt).zip');
+            }
+        });
+    </script>
+</body>
+</html>
