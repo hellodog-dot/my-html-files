@@ -215,8 +215,8 @@
                     const lineRegex = /^(\d+)\s+([\d:,]+\s*-->\s*[\d:,]+).*】:\s*(.*)/;
                     const m = line.match(lineRegex);
                     if (m) {
-                        // 核心改动：去掉句尾的 。 或 ，
-                        let cleanedLine = m[3].trim().replace(/[。，]$/, '');
+                        // 核心改动：删除句尾的 。 ， ？ ！
+                        let cleanedLine = m[3].trim().replace(/[。，？！]$/, '');
                         cleanedOutput += `${m[1]}\n${m[2]}\n${cleanedLine}\n\n`;
                     }
                 });
@@ -287,3 +287,4 @@
     </script>
 </body>
 </html>
+
