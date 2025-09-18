@@ -184,32 +184,26 @@
                 });
             }
 
-            /* ======  核心改动：一次性写死所有已知格式  ====== */
             function processText(text) {
-                // 所有可能的“标题”正则，顺序从前到后越写越宽松
                 const patterns = [
-                    /^#*\s*6\s*[\.\s]\s*台词逐字稿\s*[:：]?/m,      // #6.台词逐字稿 / 6. 台词逐字稿:
-                    /^#+\s*台词逐字稿\s*[:：]?/m,                  // #台词逐字稿 / ## 台词逐字稿
-                    /^#\s*6\s*[\.\s]\s*台词逐字稿\s*[:：]?/m,       // # 6. 台词逐字稿
-                    /^#+\s*\d*\s*[\.\s]*台词逐字稿\s*[:：]?/m       // 最宽松：前面允许任意数量#、任意数字、点号、空格
+                    /^#*\s*6\s*[\.\s]\s*台词逐字稿\s*[:：]?/m,
+                    /^#+\s*台词逐字稿\s*[:：]?/m,
+                    /^#\s*6\s*[\.\s]\s*台词逐字稿\s*[:：]?/m,
+                    /^#+\s*\d*\s*[\.\s]*台词逐字稿\s*[:：]?/m
                 ];
 
                 let headerLine = null;
-                let hitPattern = null;
 
-                // 先精确匹配，命中即停
                 for (const p of patterns) {
                     const m = text.match(p);
                     if (m) {
                         headerLine = m[0];
-                        hitPattern = p;
                         break;
                     }
                 }
 
                 if (!headerLine) return '未找到 "台词逐字稿" 部分。';
 
-                // 把正文截出来：去掉标题行本身，再往后直到下一个“# 数字.”或文末
                 const startIdx = text.indexOf(headerLine) + headerLine.length;
                 let body = text.slice(startIdx);
                 const endMatch = body.match(/\n\s*#+\s*\d+[\.\s]/);
@@ -221,13 +215,14 @@
                     const lineRegex = /^(\d+)\s+([\d:,]+\s*-->\s*[\d:,]+).*】:\s*(.*)/;
                     const m = line.match(lineRegex);
                     if (m) {
-                        cleanedOutput += `${m[1]}\n${m[2]}\n${m[3].trim()}\n\n`;
+                        // 核心改动：去掉句尾的 。 或 ，
+                        let cleanedLine = m[3].trim().replace(/[。，]$/, '');
+                        cleanedOutput += `${m[1]}\n${m[2]}\n${cleanedLine}\n\n`;
                     }
                 });
 
                 return cleanedOutput.trim() || '未找到符合格式的台词行。';
             }
-            /* =================================================== */
 
             function displayOutput(fileName, content) {
                 const header = document.createElement('div');
@@ -280,7 +275,6 @@
                 const zip = new JSZip();
                 for (const fileName in processedFiles) {
                     if (Object.hasOwnProperty.call(processedFiles, fileName)) {
-                        // 将文件名从 .txt 改为 .srt
                         const newFileName = fileName.replace(/\.txt$/, '.srt');
                         const content = processedFiles[fileName];
                         zip.file(newFileName, content);
