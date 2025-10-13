@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SRT字幕批量对比工具 - 两步对齐</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        /* 样式：逻辑说明区域 */
+        .logic-explanation details {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .logic-explanation summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: #333;
+        }
+        .logic-explanation ul {
+            list-style: disc;
+            margin-left: 20px;
+            padding-left: 0;
+        }
+
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .upload-area input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0; 
+            cursor: pointer;
+            z-index: 10;
+        }
+        .upload-area.highlight {
+            border-color: #2196F3;
+            background-color: #e3f2fd;
+        }
+        .file-info {
+            margin-top: 10px;
+            font-size: 16px; /* 字体加大 */
+            color: #d32f2f; /* 醒目红色 */
+            font-weight: bold; /* 加粗 */
+            pointer-events: none;
+        }
+        .upload-area h3, .upload-area p {
+            pointer-events: none;
+        }
+        
+        /* 样式：控制区域优化为多行 */
+        .controls-area {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column; /* 垂直堆叠 */
+            align-items: flex-start; /* 左对齐 */
+        }
+        .controls-row {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .compare-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .compare-btn:hover:enabled {
+            background-color: #45a049;
+        }
+        .compare-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .edit-btn {
+            background-color: #2196F3 !important;
+        }
+        .download-btn {
+            background-color: #009688 !important;
+        }
+        .second-round-btn {
+            background-color: #FFC107;
+            color: #333;
+        }
+        .second-round-btn:hover:enabled {
+            background-color: #ff9800;
+        }
+        .result-summary {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        .episode-result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .episode-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .subtitle-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .subtitle-table th, .subtitle-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .subtitle-table th {
+            background-color: #f2f2f2;
+        }
+        .subtitle-table td[contenteditable="true"]:focus {
+            outline: 2px solid #2196F3;
+            background-color: #fffde7;
+        }
+        
+        /* 状态颜色 */
+        /* 修改 .no-change: 移除颜色，使其默认为黑色 (或继承父级颜色) */
+        .no-change { color: inherit; } 
+        .modified { color: orange; }
+        .time-axis-mismatch { color: purple; } /* 用于毫秒对齐后的状态 */
+        .missing { color: red; }
+        .extra { color: red; }
+        .punctuation-modified { color: blue; }
+        .space-modified { color: brown; }
+        .line-break-modified { color: #ff6600; }
+        
+        /* 编辑状态颜色 */
+        .edited-status { color: blue; font-weight: bold; }
+        .unedited-status { color: #666; }
+
+        .total-stats {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SRT字幕批量对比工具 - 两步对齐模式</h1>
+        
+        <div class="logic-explanation">
+            <details>
+                <summary>点击展开：工具对比逻辑说明</summary>
+                <div>
+                    <h4>第一步（基于秒的严格匹配）</h4>
+                    <ul>
+                        <li>**逻辑：** 基于**起始时间轴的秒数**进行完全匹配。</li>
+                        <li>**结果：** 生成初步对比结果，未匹配项标记为 `缺少翻译` 或 `额外翻译`。</li>
+                    </ul>
+                    <h4>第二步（基于毫秒的二次对齐 - 点击按钮后执行）</h4>
+                    <ul>
+                        <li>**范围：** 只对第一步中标记为 `缺少翻译 (missing)` 和 `额外翻译 (extra)` 的字幕项进行检查。</li>
+                        <li>**文本：** 严格要求 **原始文本** 和 **翻译文本** **完全相同** (`original.text === translated.text`)。</li>
+                        <li>**时间：** 计算 **结束时间轴的毫秒差**。</li>
+                        <li>**容忍度：** 仅在毫秒差值 **$\le 103 \text{ ms}$** 时进行匹配。</li>
+                        <li>**状态：** 匹配成功后，状态更新为 `结束毫秒相差XXms`。</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+        
+        <div class="upload-area" id="original-upload-area" 
+             ondragover="handleDragOver(event, this)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'original')">
+            <h3>点击上传原始SRT文件</h3>
+            <input type="file" id="original-files" accept=".srt" multiple>
+            <p>请上传原始字幕文件（支持多选）</p>
+            <div id="original-file-info" class="file-info"></div>
+        </div>
+        
+        <div class="upload-area" id="translated-upload-area" 
+             ondragover="handleDragOver(event, this)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'translated')">
+            <h3>点击上传审校后的SRT文件</h3>
+            <input type="file" id="translated-files" accept=".srt" multiple>
+            <p>请上传审校后的字幕文件（支持多选）</p>
+            <div id="translated-file-info" class="file-info"></div>
+        </div>
+        
+        <div class="controls-area">
+            <div class="controls-row">
+                <button class="compare-btn" id="compare-btn" disabled>①开始对比（秒）</button>
+                <button class="compare-btn second-round-btn" id="second-round-btn" disabled>②二轮对比（≤103ms 结束时间 | 相同文本）</button>
+                <button class="compare-btn edit-btn" id="edit-btn" style="display: none;">开始编辑</button>
+            </div>
+            
+            <div class="controls-row">
+                <div id="filter-area" style="margin-right: 20px; display: none; align-items: center;">
+                    <label for="status-filter" style="margin-right: 10px;">筛选修改情况:</label>
+                    <select id="status-filter">
+                        <option value="">显示全部</option>
+                        <option value="no-change">未修改</option>
+                        <option value="modified">文本修改</option>
+                        <option value="punctuation-modified">标点修改</option>
+                        <option value="space-modified">空格修改</option>
+                        <option value="line-break-modified">换行修改</option>
+                        <option value="time-axis-mismatch">毫秒对齐/时间轴相近</option>
+                        <option value="missing">缺少翻译</option>
+                        <option value="extra">额外翻译</option>
+                    </select>
+                    <button class="compare-btn" id="apply-filter-btn" style="margin-left: 10px;">应用筛选</button>
+                </div>
+                <button class="compare-btn download-btn" id="download-srt-btn" style="display: none;">下载最新SRT (ZIP)</button>
+            </div>
+        </div>
+        
+        <div id="result-container" class="result-summary" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 全局存储对比结果，用于编辑和下载，以及第二轮匹配
+        let globalComparisonResults = []; 
+        let globalOriginalFiles = {};
+
+        // --- 辅助函数 (时间、文件、UI) ---
+
+        function updateFileInfo(elementId, message) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = '【' + message + '】'; // 增加括号突出显示
+            }
+        }
+
+        function timeStrToSeconds(timeStr) {
+            // Converts HH:MM:SS,mmm string to total seconds (only the integer seconds part is used for strict seconds match)
+            const [timePart] = timeStr.split(',');
+            const [hours, minutes, seconds] = timePart.split(':').map(Number);
+            return hours * 3600 + minutes * 60 + seconds;
+        }
+
+        // Utility to convert HH:MM:SS,mmm string part to total milliseconds
+        function parseTimePartToMilliseconds(timePartStr) {
+            const parts = timePartStr.split(',');
+            const timeOnly = parts[0];
+            // Ensure msPart is treated as number, if parts[1] is undefined, it's 0
+            const msPart = parts.length > 1 && !isNaN(parseInt(parts[1])) ? parseInt(parts[1]) : 0;
+            
+            const [hours, minutes, seconds] = timeOnly.split(':').map(Number);
+            
+            return hours * 3600000 + minutes * 60000 + seconds * 1000 + msPart;
+        }
+        
+        // Gets the START time in ms from the full SRT time line (HH:MM:SS,mmm --> HH:MM:SS,mmm)
+        function timeStartStrToMilliseconds(fullTimeStr) {
+            const startPart = fullTimeStr.split(' --> ')[0];
+            return parseTimePartToMilliseconds(startPart);
+        }
+        
+        // Gets the END time in ms from the full SRT time line (HH:MM:SS,mmm --> HH:MM:SS,mmm)
+        function timeEndStrToMilliseconds(fullTimeStr) {
+            const endPart = fullTimeStr.split(' --> ')[1];
+            if (!endPart) return 0;
+            return parseTimePartToMilliseconds(endPart);
+        }
+
+        function getFileSortKey(fileName) {
+            const match = fileName.match(/\d+/);
+            return match ? parseInt(match[0]) : Infinity;
+        }
+
+        function sortFilesByNumber(files) {
+            const fileArray = Array.from(files);
+            return fileArray.sort((a, b) => {
+                const numA = parseInt((a.name.match(/\d+/) || [0])[0]);
+                const numB = parseInt((b.name.match(/\d+/) || [0])[0]);
+                return numA - numB;
+            });
+        }
+        
+        function sortFileNames(fileNameList) {
+            return fileNameList.sort((a, b) => {
+                const numA = parseInt((a.match(/\d+/) || [0])[0]);
+                const numB = parseInt((b.match(/\d+/) || [0])[0]);
+                return numA - numB;
+            });
+        }
+
+        function parseSrtContent(content) {
+            const lines = content.split('\n');
+            const subtitles = [];
+            let currentSubtitle = null;
+            let inTextSection = false;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) {
+                    if (currentSubtitle !== null) {
+                        currentSubtitle.text = currentSubtitle.text.trim();
+                        subtitles.push(currentSubtitle);
+                        currentSubtitle = null;
+                        inTextSection = false;
+                    }
+                    continue;
+                }
+                if (currentSubtitle === null) {
+                    currentSubtitle = { index: parseInt(line), time: '', text: '' };
+                } else if (currentSubtitle.time === '') {
+                    currentSubtitle.time = line;
+                } else {
+                    currentSubtitle.text += (inTextSection ? '\n' : '') + line;
+                    inTextSection = true;
+                }
+            }
+            if (currentSubtitle !== null) {
+                currentSubtitle.text = currentSubtitle.text.trim();
+                subtitles.push(currentSubtitle);
+            }
+            return subtitles;
+        }
+
+        function compareTextDifferences(originalText, translatedText) {
+            let statusText = '';
+            let statusClass = '';
+            let modificationTypes = [];
+
+            const originalHasLineBreak = originalText.includes('\n') || originalText.includes('<br>');
+            const translatedHasLineBreak = translatedText.includes('\n') || translatedText.includes('<br>');
+            
+            if (originalText === translatedText) {
+                statusText = '未修改';
+                statusClass = 'no-change';
+            } else {
+                const originalTextNormalized = originalText.replace(/\s+/g, ' ');
+                const translatedTextNormalized = translatedText.replace(/\s+/g, ' ');
+                
+                if (originalTextNormalized === translatedTextNormalized) {
+                    if (originalHasLineBreak !== translatedHasLineBreak) {
+                        modificationTypes.push('换行修改');
+                        statusClass = 'line-break-modified';
+                    }
+                } else {
+                    const originalTextNoPunctuation = originalText.replace(/[.,!?;:，。？！；：]/g, '');
+                    const translatedTextNoPunctuation = translatedText.replace(/[.,!?;:，。？！；：]/g, '');
+                    
+                    if (originalTextNoPunctuation === translatedTextNoPunctuation) {
+                        modificationTypes.push('标点修改');
+                        statusClass = 'punctuation-modified';
+                    } else {
+                        const originalTextNoSpace = originalText.replace(/\s+/g, '');
+                        const translatedTextNoSpace = translatedText.replace(/\s+/g, '');
+                        
+                        if (originalTextNoSpace === translatedTextNoSpace) {
+                            modificationTypes.push('空格修改');
+                            statusClass = 'space-modified';
+                        } else {
+                            modificationTypes.push('文本修改');
+                            statusClass = 'modified';
+                        }
+                    }
+                }
+                
+                if (modificationTypes.length === 0) {
+                    modificationTypes.push('文本修改'); // Fallback
+                    statusClass = 'modified';
+                }
+                statusText = modificationTypes.join(', ');
+            }
+            return { statusText, statusClass, modificationTypes };
+        }
+
+        // --- 核心对比逻辑 ---
+
+        /**
+         * Step 1: Strict Seconds Match (保持原有逻辑)
+         */
+        function compareEpisodesStep1(originalContent, translatedContent) {
+            const originalSubtitles = parseSrtContent(originalContent);
+            const translatedSubtitles = parseSrtContent(translatedContent);
+            
+            // --- 初始化统计信息 (只计算数量，不计算费率) ---
+            const comparisonResult = {
+                totalSubtitles: 0,
+                modifiedSubtitles: 0,
+                punctuationModified: 0,
+                spaceModified: 0,
+                lineBreakModified: 0,
+                originalCharacters: 0,
+                translatedCharacters: 0,
+                missingSubtitles: 0,
+                extraSubtitles: 0,
+                subtitles: [], // 包含 matched, missing, extra
+                // 原始数据统计
+                rawOriginalCount: originalSubtitles.length,
+                rawTranslatedCount: translatedSubtitles.length
+            };
+            
+            // 使用起始毫秒进行排序 (确保Step 1的匹配顺序是按时间轴推进的)
+            const sortedOriginal = [...originalSubtitles].sort((a, b) => {
+                return timeStartStrToMilliseconds(a.time) - timeStartStrToMilliseconds(b.time);
+            });
+            const sortedTranslated = [...translatedSubtitles].sort((a, b) => {
+                return timeStartStrToMilliseconds(a.time) - timeStartStrToMilliseconds(b.time);
+            });
+            
+            let originalIndex = 0;
+            let translatedIndex = 0;
+            
+            while (originalIndex < sortedOriginal.length || translatedIndex < sortedTranslated.length) {
+                if (originalIndex < sortedOriginal.length && translatedIndex < sortedTranslated.length) {
+                    const original = sortedOriginal[originalIndex];
+                    const translated = sortedTranslated[translatedIndex];
+                    
+                    const originalTimeStart = original.time.split(' --> ')[0];
+                    const translatedTimeStart = translated.time.split(' --> ')[0];
+                    
+                    const originalSeconds = timeStrToSeconds(originalTimeStart);
+                    const translatedSeconds = timeStrToSeconds(translatedTimeStart);
+                    
+                    if (originalSeconds === translatedSeconds) {
+                        // --- 严格匹配 (秒级起始时间相同) ---
+                        comparisonResult.totalSubtitles++;
+                        comparisonResult.originalCharacters += original.text.length;
+                        comparisonResult.translatedCharacters += translated.text.length;
+                        
+                        const { statusText, statusClass, modificationTypes } = compareTextDifferences(original.text, translated.text);
+
+                        // 更新修改类型统计
+                        if (modificationTypes.includes('文本修改')) comparisonResult.modifiedSubtitles++;
+                        if (modificationTypes.includes('标点修改')) comparisonResult.punctuationModified++;
+                        if (modificationTypes.includes('空格修改')) comparisonResult.spaceModified++;
+                        if (modificationTypes.includes('换行修改')) comparisonResult.lineBreakModified++;
+
+                        comparisonResult.subtitles.push({
+                            index: original.index,
+                            originalTime: original.time,
+                            original: original.text,
+                            translatedTime: translated.time,
+                            translated: translated.text,
+                            status: statusText,
+                            statusClass: statusClass,
+                            edited: false,
+                            rawOriginal: original,
+                            rawTranslated: translated,
+                        });
+                        
+                        originalIndex++;
+                        translatedIndex++;
+                    } else if (originalSeconds < translatedSeconds) { 
+                        // --- 缺少翻译 (原始指针超前) ---
+                        comparisonResult.missingSubtitles++;
+                        comparisonResult.subtitles.push({
+                            index: original.index,
+                            originalTime: original.time,
+                            original: original.text,
+                            translatedTime: '翻译文件中不存在',
+                            translated: '',
+                            status: '缺少翻译',
+                            statusClass: 'missing',
+                            edited: false,
+                            rawOriginal: original, // 存储原始数据对象
+                            rawTranslated: null,
+                        });
+                        originalIndex++;
+                    } else { // translatedSeconds < originalSeconds
+                        // --- 额外翻译 (翻译指针超前) ---
+                        comparisonResult.extraSubtitles++;
+                        comparisonResult.subtitles.push({
+                            index: translated.index,
+                            originalTime: '原始文件中不存在',
+                            original: '',
+                            translatedTime: translated.time,
+                            translated: translated.text,
+                            status: '额外翻译',
+                            statusClass: 'extra',
+                            edited: false,
+                            rawOriginal: null,
+                            rawTranslated: translated, // 存储翻译数据对象
+                        });
+                        translatedIndex++;
+                    }
+                } else if (originalIndex < sortedOriginal.length) {
+                    // --- 原始文件尾部剩余 ---
+                    const original = sortedOriginal[originalIndex];
+                    comparisonResult.missingSubtitles++;
+                    comparisonResult.subtitles.push({
+                        index: original.index,
+                        originalTime: original.time,
+                        original: original.text,
+                        translatedTime: '翻译文件中不存在',
+                        translated: '',
+                        status: '缺少翻译',
+                        statusClass: 'missing',
+                        edited: false,
+                        rawOriginal: original,
+                        rawTranslated: null,
+                    });
+                    originalIndex++;
+                } else {
+                    // --- 翻译文件尾部剩余 ---
+                    const translated = sortedTranslated[translatedIndex];
+                    comparisonResult.extraSubtitles++;
+                    comparisonResult.subtitles.push({
+                        index: translated.index,
+                        originalTime: '原始文件中不存在',
+                        original: '',
+                        translatedTime: translated.time,
+                        translated: translated.text,
+                        status: '额外翻译',
+                        statusClass: 'extra',
+                        edited: false,
+                        rawOriginal: null,
+                        rawTranslated: translated,
+                    });
+                    translatedIndex++;
+                }
+            }
+            
+            // 最终统计计算
+            const totalModifiedMinor = comparisonResult.modifiedSubtitles + comparisonResult.punctuationModified + comparisonResult.spaceModified + comparisonResult.lineBreakModified;
+            comparisonResult.modificationRate = comparisonResult.totalSubtitles > 0 ? ((totalModifiedMinor / comparisonResult.totalSubtitles) * 100).toFixed(2) : 0;
+            return comparisonResult;
+        }
+
+        /**
+         * Step 2: Second Round Comparison for missing/extra items.
+         * Logic: Must have identical TEXT, and END time MS difference <= 103ms.
+         */
+        function runSecondRoundComparison() {
+            const msTolerance = 103; // *** 毫秒容忍度 <= 103ms ***
+            const secondRoundBtn = document.getElementById('second-round-btn');
+            secondRoundBtn.disabled = true;
+            secondRoundBtn.textContent = '对齐中...';
+            
+            globalComparisonResults.forEach(episodeResult => {
+                if (episodeResult.missing) return; 
+
+                const { subtitles } = episodeResult.comparisonResult;
+                
+                // 1. 提取未匹配的 items
+                const missingItems = subtitles.filter(sub => sub.statusClass === 'missing');
+                const extraItems = subtitles.filter(sub => sub.statusClass === 'extra');
+                
+                // 使用数组进行匹配，方便移除已匹配项
+                const potentialMissing = [...missingItems];
+                const potentialExtra = [...extraItems];
+                
+                const newlyMatched = [];
+                
+                // 2. 核心 N^2 毫秒匹配 (使用结束时间)
+                let i = 0; 
+                while (i < potentialMissing.length) {
+                    let j = 0; 
+                    let matched = false;
+                    const original = potentialMissing[i].rawOriginal;
+                    
+                    while (j < potentialExtra.length) {
+                        const translated = potentialExtra[j].rawTranslated;
+                        
+                        // 1. 严格文本匹配
+                        if (original.text === translated.text) {
+                            
+                            // 2. 结束时间轴的毫秒差检查 (≤ 103ms)
+                            const originalEndMs = timeEndStrToMilliseconds(original.time);
+                            const translatedEndMs = timeEndStrToMilliseconds(translated.time);
+                            const msDifference = Math.abs(originalEndMs - translatedEndMs);
+
+                            if (msDifference <= msTolerance) {
+                                
+                                // Found a match in the second round
+                                // 状态更新：使用结束毫秒差值
+                                const statusText = `结束毫秒相差${msDifference}ms`;
+                                
+                                // 创建新的合并字幕条目
+                                newlyMatched.push({
+                                    index: original.index,
+                                    originalTime: original.time,
+                                    original: original.text,
+                                    translatedTime: translated.time,
+                                    translated: translated.text,
+                                    status: statusText,
+                                    statusClass: 'time-axis-mismatch', // 使用此状态类显示为紫色
+                                    edited: false,
+                                    rawOriginal: original, 
+                                    rawTranslated: translated,
+                                });
+                                
+                                // 移除已匹配项
+                                potentialMissing.splice(i, 1);
+                                potentialExtra.splice(j, 1);
+                                matched = true;
+                                break; 
+                            }
+                        }
+                        j++;
+                    }
+                    
+                    if (!matched) {
+                        i++; // 仅在未匹配时移动缺失项指针
+                    }
+                }
+                
+                // 3. 重建主字幕列表
+                const matchedInStep1 = subtitles.filter(sub => sub.statusClass !== 'missing' && sub.statusClass !== 'extra');
+                
+                let finalSubtitles = [
+                    ...matchedInStep1,
+                    ...newlyMatched,
+                    ...potentialMissing, // 剩余项保留 'missing' 状态
+                    ...potentialExtra  // 剩余项保留 'extra' 状态
+                ];
+                
+                // 重新排序 (使用起始时间轴)
+                finalSubtitles.sort((a, b) => {
+                    const getTimeMs = (sub) => {
+                         let timeStr = '00:00:00,000 --> 00:00:00,000';
+                         if (sub.originalTime && sub.originalTime.includes(' --> ')) {
+                             timeStr = sub.originalTime;
+                         } else if (sub.translatedTime && sub.translatedTime.includes(' --> ')) {
+                             timeStr = sub.translatedTime;
+                         }
+                         // 使用起始时间进行排序
+                         return timeStartStrToMilliseconds(timeStr);
+                    };
+                    return getTimeMs(a) - getTimeMs(b);
+                });
+                
+                episodeResult.comparisonResult.subtitles = finalSubtitles;
+                
+                // 4. 更新统计信息
+                episodeResult.comparisonResult.missingSubtitles = potentialMissing.length;
+                episodeResult.comparisonResult.extraSubtitles = potentialExtra.length;
+                
+                // totalSubtitles 只需要计算匹配的，因为修改率只针对匹配的字幕
+                episodeResult.comparisonResult.totalSubtitles = matchedInStep1.length + newlyMatched.length;
+            });
+            
+            secondRoundBtn.textContent = `②二轮对比（≤${msTolerance}ms 结束时间 | 相同文本）`;
+            
+            // 重新渲染所有结果
+            renderResults();
+        }
+
+        // --- 统一结果渲染函数 ---
+
+        function renderResults() {
+            const resultContainer = document.getElementById('result-container');
+            resultContainer.innerHTML = '<h2>对比结果</h2>';
+
+            // 重新计算总统计信息
+            let totalEpisodes = 0;
+            let totalUnchangedEpisodes = 0;
+            let totalModifiedEpisodes = 0;
+            let totalMinorModifiedEpisodes = 0;
+            let totalMissingEpisodes = 0;
+            let totalTotalSubtitles = 0; // 原始文件总字幕数
+            let totalModifiedSubtitles = 0;
+            let totalPunctuationModifiedSubtitles = 0;
+            let totalSpaceModifiedSubtitles = 0;
+            let totalLineBreakModifiedSubtitles = 0;
+            let totalMissingSubtitles = 0;
+            let unchangedEpisodes = [];
+            let minorModifiedEpisodes = [];
+
+            // 遍历所有结果并更新统计
+            globalComparisonResults.forEach(result => {
+                if (result.missing) {
+                    totalMissingEpisodes++;
+                    return;
+                }
+                
+                const comp = result.comparisonResult;
+                const allModifiedSubtitles = comp.modifiedSubtitles + comp.punctuationModified + comp.spaceModified + comp.lineBreakModified;
+                
+                totalEpisodes++;
+
+                // 检查是否所有字幕都没有修改且没有残余的 missing/extra，且没有毫秒对齐项
+                const isCompletelyUnchanged = comp.missingSubtitles === 0 && comp.extraSubtitles === 0 && allModifiedSubtitles === 0 && comp.subtitles.filter(s => s.statusClass === 'time-axis-mismatch').length === 0;
+
+                if (isCompletelyUnchanged) {
+                    totalUnchangedEpisodes++;
+                    unchangedEpisodes.push(result.fileName);
+                } else {
+                    totalModifiedEpisodes++;
+                    if (comp.modifiedSubtitles === 0 && 
+                        (comp.punctuationModified > 0 || comp.spaceModified > 0 || comp.lineBreakModified > 0)) {
+                         totalMinorModifiedEpisodes++;
+                         minorModifiedEpisodes.push(result.fileName);
+                    }
+                    
+                    totalModifiedSubtitles += comp.modifiedSubtitles;
+                    totalPunctuationModifiedSubtitles += comp.punctuationModified;
+                    totalSpaceModifiedSubtitles += comp.spaceModified;
+                    totalLineBreakModifiedSubtitles += comp.lineBreakModified;
+                    totalMissingSubtitles += comp.missingSubtitles;
+                }
+                
+                // 使用原始文件字幕总数（匹配 + 缺失）
+                totalTotalSubtitles += comp.rawOriginalCount; 
+            });
+
+
+            // === 总统计信息展示 ===
+            const grandTotalEpisodes = document.getElementById('original-files').files.length;
+            const allModifiedSubtitles = totalModifiedSubtitles + totalPunctuationModifiedSubtitles + totalSpaceModifiedSubtitles + totalLineBreakModifiedSubtitles;
+            const allModifiedRate = totalTotalSubtitles > 0 ? ((allModifiedSubtitles / totalTotalSubtitles) * 100).toFixed(2) : 0;
+            const textModificationRate = totalTotalSubtitles > 0 ? ((totalModifiedSubtitles / totalTotalSubtitles) * 100).toFixed(2) : 0;
+            const modificationRate = grandTotalEpisodes > 0 ? (((totalModifiedEpisodes) / grandTotalEpisodes) * 100).toFixed(2) : 0;
+
+            const totalStatsDiv = document.createElement('div');
+            totalStatsDiv.className = 'total-stats';
+            totalStatsDiv.innerHTML = `
+                <h3>总统计信息</h3>
+                <div>原始文件总集数: ${grandTotalEpisodes}</div>
+                <div>已对比集数: ${totalEpisodes}</div>
+                <div>缺少翻译文件的集数: ${totalMissingEpisodes}</div>
+                <div>未修改集数: ${totalUnchangedEpisodes} (${sortFileNames(unchangedEpisodes).join(', ')})</div>
+                <div>已修改集数: ${totalModifiedEpisodes}</div>
+                <div>修改率 (按集数): ${modificationRate}%</div>
+                <div>轻微修改集数（仅标点、空格、换行）: ${totalMinorModifiedEpisodes} (${sortFileNames(minorModifiedEpisodes).join(', ')})</div>
+                <div>全集总字幕数 (原始): ${totalTotalSubtitles}</div>
+                <div>已修改字幕数 (总): ${allModifiedSubtitles} (${allModifiedRate}%)</div>
+                <div>- 文本修改字幕数: ${totalModifiedSubtitles} (${textModificationRate}%)</div>
+                <div>- 标点修改字幕数: ${totalPunctuationModifiedSubtitles}</div>
+                <div>- 空格修改字幕数: ${totalSpaceModifiedSubtitles}</div>
+                <div>- 换行修改字幕数: ${totalLineBreakModifiedSubtitles}</div>
+                <div>缺少翻译字幕数 (剩余): ${totalMissingSubtitles}</div>
+            `;
+            resultContainer.appendChild(totalStatsDiv);
+            
+            // === 单集结果展示 (移除单集统计) ===
+            globalComparisonResults.sort((a, b) => getFileSortKey(a.fileName) - getFileSortKey(b.fileName));
+            globalComparisonResults.forEach(result => {
+                const { fileName, comparisonResult, missing } = result;
+                const episodeKey = getFileSortKey(fileName);
+                
+                const episodeDiv = document.createElement('div');
+                episodeDiv.className = 'episode-result';
+  
+                if (missing) {
+                    episodeDiv.innerHTML = `
+                        <div class="episode-title">${fileName} - 缺少对应的翻译文件</div>
+                        <p style="color:red;">未找到与 ${fileName} 对应的翻译文件</p>
+                    `;
+                } else {
+                    const { subtitles } = comparisonResult;
+
+                    const table = document.createElement('table');
+                    table.className = 'subtitle-table';
+                    table.setAttribute('data-episode-key', episodeKey); 
+                    
+                    table.innerHTML = `
+                        <thead>
+                        <tr>
+                                <th>序号</th>
+                                <th>原始时间轴</th>
+                                <th>原始文本</th>
+                                <th>翻译时间轴 (可编辑)</th> <th>翻译文本 (可编辑)</th> <th>修改情况</th>
+                                <th>编辑情况</th> 
+                        </tr>
+                        </thead>
+                        <tbody>
+                            ${subtitles.map((subtitle, subIndex) => 
+                            {
+                                const rowClass = subtitle.statusClass;
+                                const editable = 'false';
+                                
+                                const initialTranslated = subtitle.translated || '';
+                                const initialTranslatedTime = subtitle.translatedTime || '';
+
+                                const editStatus = subtitle.edited ? '已修改' : '未编辑';
+                                const editStatusClass = subtitle.edited ? 'edited-status' : 'unedited-status';
+                                
+                                // 根据 rowClass (statusClass) 决定是否应用颜色类
+                                const originalTextClass = rowClass !== 'no-change' ? rowClass : '';
+                                const translatedTextClass = rowClass !== 'no-change' ? rowClass : '';
+
+                                
+                                return `
+                                    <tr data-sub-index="${subIndex}" class="${rowClass}">
+                                        <td>${subtitle.index || (subIndex + 1)}</td>
+                                        <td>${subtitle.originalTime}</td>
+                                        <td>${subtitle.original}</td>
+                                        <td contenteditable="${editable}" data-field="translatedTime" data-initial-content="${initialTranslatedTime}" title="点击 '开始编辑' 按钮后可修改">${initialTranslatedTime}</td>
+                                        <td contenteditable="${editable}" data-field="translated" data-initial-content="${initialTranslated}" title="点击 '开始编辑' 按钮后可修改">${initialTranslated}</td>
+                                        <td class="${rowClass}">${subtitle.status}</td>
+                                        <td class="edit-status ${editStatusClass}">${editStatus}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    `;
+                    
+                    // 移除单集统计信息 statsDiv
+                    episodeDiv.innerHTML = `
+                        <div class="episode-title">${fileName}</div>
+                        ${table.outerHTML}
+                    `;
+                }
+                
+                resultContainer.appendChild(episodeDiv);
+            });
+
+            // 重新启用编辑和筛选按钮
+            document.getElementById('edit-btn').style.display = 'inline-block';
+            // 确保 controls-row 里的 filter-area 启用
+            document.getElementById('filter-area').style.display = 'flex';
+            document.getElementById('download-srt-btn').style.display = 'inline-block';
+        }
+
+
+        // --- UI 和事件绑定 ---
+
+        // 拖拽上传功能
+        function handleDragOver(evt, area) {
+            evt.stopPropagation();
+            evt.preventDefault();
+            area.classList.add('highlight');
+        }
+        
+        function handleDragLeave(evt) {
+            evt.stopPropagation();
+            evt.preventDefault();
+            evt.target.classList.remove('highlight');
+        }
+        
+        function handleDrop(evt, type) {
+            evt.stopPropagation();
+            evt.preventDefault();
+            evt.target.classList.remove('highlight');
+            
+            const files = evt.dataTransfer.files;
+            
+            if (files.length > 0) {
+                if (type === 'original') {
+                    document.getElementById('original-files').files = files; 
+                    updateFileInfo('original-file-info', files.length + ' 个文件已上传'); // 确保更新
+                } else {
+                    document.getElementById('translated-files').files = files;
+                    updateFileInfo('translated-file-info', files.length + ' 个文件已上传'); // 确保更新
+                }
+                checkFilesSelected();
+            }
+        }
+        
+        // 文件选择事件
+        document.getElementById('original-files').addEventListener('change', function(evt) {
+            updateFileInfo('original-file-info', evt.target.files.length + ' 个文件已上传');
+            checkFilesSelected();
+        });
+        document.getElementById('translated-files').addEventListener('change', function(evt) {
+            updateFileInfo('translated-file-info', evt.target.files.length + ' 个文件已上传');
+            checkFilesSelected();
+        });
+        
+        // 检查文件选择状态和按钮启用状态
+        function checkFilesSelected() {
+            const originalFiles = document.getElementById('original-files').files;
+            const translatedFiles = document.getElementById('translated-files').files;
+            
+            const compareBtn = document.getElementById('compare-btn');
+            compareBtn.disabled = originalFiles.length === 0 || translatedFiles.length === 0;
+
+            // 如果文件变动，禁用二轮对比按钮
+            document.getElementById('second-round-btn').disabled = true;
+        }
+
+        // --- 编辑和下载函数（保持原有逻辑） ---
+
+        function startEditing() {
+            const editBtn = document.getElementById('edit-btn');
+            const isEditing = editBtn.textContent === '停止编辑';
+            
+            if (!isEditing) {
+                editBtn.textContent = '停止编辑';
+                editBtn.style.backgroundColor = '#f44336'; 
+                
+                document.querySelectorAll('.subtitle-table td[data-field]').forEach(td => {
+                    if (td.getAttribute('data-field') === 'translated' || td.getAttribute('data-field') === 'translatedTime') {
+                        td.setAttribute('contenteditable', 'true');
+                        td.addEventListener('input', updateEditStatus);
+                    }
+                });
+                alert('已进入编辑模式。');
+            } else {
+                editBtn.textContent = '开始编辑';
+                editBtn.style.backgroundColor = '#2196F3';
+                
+                document.querySelectorAll('.subtitle-table td[data-field]').forEach(td => {
+                    td.setAttribute('contenteditable', 'false');
+                    td.removeEventListener('input', updateEditStatus);
+                });
+                alert('已退出编辑模式。');
+            }
+        }
+        
+        function updateEditStatus(evt) {
+            const editedCell = evt.target;
+            const currentRow = editedCell.closest('tr');
+            const editStatusCell = currentRow.querySelector('.edit-status');
+            const episodeKey = currentRow.closest('table').getAttribute('data-episode-key');
+            const subIndex = parseInt(currentRow.getAttribute('data-sub-index'));
+            const field = editedCell.getAttribute('data-field');
+            
+            const episodeResult = globalComparisonResults.find(r => getFileSortKey(r.fileName) == episodeKey);
+            if (episodeResult && episodeResult.comparisonResult.subtitles[subIndex]) {
+                const subtitle = episodeResult.comparisonResult.subtitles[subIndex];
+
+                // 1. 更新全局存储的字幕字段
+                subtitle[field] = editedCell.textContent;
+                
+                // 2. 检查是否发生总体的修改
+                const translatedCell = currentRow.querySelector('td[data-field="translated"]');
+                const timeCell = currentRow.querySelector('td[data-field="translatedTime"]');
+
+                const initialTranslated = translatedCell.getAttribute('data-initial-content');
+                const currentTranslated = translatedCell.textContent;
+                const initialTime = timeCell.getAttribute('data-initial-content');
+                const currentTime = timeCell.textContent;
+                
+                const isTranslatedModified = currentTranslated.trim() !== initialTranslated.trim();
+                const isTimeModified = currentTime.trim() !== initialTime.trim();
+
+                if (isTranslatedModified || isTimeModified) {
+                    editStatusCell.textContent = '已修改';
+                    editStatusCell.classList.add('edited-status');
+                    editStatusCell.classList.remove('unedited-status');
+                    subtitle.edited = true;
+                } else {
+                    editStatusCell.textContent = '未编辑';
+                    editStatusCell.classList.add('unedited-status');
+                    editStatusCell.classList.remove('edited-status');
+                    subtitle.edited = false;
+                }
+            }
+        }
+
+        function applyFilter() {
+            const filterValue = document.getElementById('status-filter').value;
+            const episodeResults = document.querySelectorAll('.episode-result'); 
+            
+            episodeResults.forEach(episodeDiv => {
+                const table = episodeDiv.querySelector('.subtitle-table');
+                
+                if (!table) {
+                    if (episodeDiv.querySelector('.episode-title').textContent.includes('缺少对应的翻译文件') && filterValue === '') {
+                        episodeDiv.style.display = 'block';
+                    } else {
+                        episodeDiv.style.display = 'none';
+                    }
+                    return;
+                } 
+                
+                let episodeHasMatches = false;
+                
+                table.querySelectorAll('tbody tr').forEach(row => {
+                    const rowClass = row.className;
+                    
+                    if (filterValue === '') {
+                        row.style.display = ''; 
+                        episodeHasMatches = true;
+                    } else if (rowClass.includes(filterValue)) {
+                        row.style.display = ''; 
+                        episodeHasMatches = true;
+                    } else {
+                        row.style.display = 'none'; 
+                    }
+                });
+                
+                episodeDiv.style.display = episodeHasMatches ? 'block' : 'none';
+                
+                if (episodeDiv.querySelector('.episode-title').textContent.includes('缺少对应的翻译文件') && filterValue === '') {
+                    episodeDiv.style.display = 'block';
+                }
+            });
+        }
+
+        function createSrtContent(subtitles) {
+            let srtText = '';
+            let srtIndex = 1; 
+            
+            const validSubtitles = subtitles.filter(sub => {
+                return sub.translated.trim() !== '' && sub.translatedTime.includes(' --> '); 
+            });
+
+            // 再次确保按起始时间排序
+            validSubtitles.sort((a, b) => {
+                const timeA = a.translatedTime.includes(' --> ') ? a.translatedTime : '00:00:00,000 --> 00:00:00,000';
+                const timeB = b.translatedTime.includes(' --> ') ? b.translatedTime : '00:00:00,000 --> 00:00:00,000';
+                const secondsA = timeStartStrToMilliseconds(timeA);
+                const secondsB = timeStartStrToMilliseconds(timeB);
+                return secondsA - secondsB;
+            });
+            
+            validSubtitles.forEach(sub => {
+                srtText += srtIndex + '\n'; 
+                srtText += sub.translatedTime + '\n';
+                srtText += sub.translated + '\n\n'; 
+                srtIndex++;
+            });
+            return srtText.trim();
+        }
+
+        async function downloadAllSrt() {
+            if (globalComparisonResults.length === 0) {
+                alert('请先进行字幕对比！');
+                return;
+            }
+            
+            const zip = new JSZip();
+            let fileCount = 0;
+            
+            globalComparisonResults.forEach(result => {
+                if (!result.missing) {
+                    const { fileName, comparisonResult } = result;
+                    
+                    const srtContent = createSrtContent(comparisonResult.subtitles);
+
+                    if (srtContent) {
+                        const zipFileName = fileName.replace('.srt', '_edited.srt');
+                        zip.file(zipFileName, srtContent);
+                        fileCount++;
+                    }
+                }
+            });
+            
+            if (fileCount === 0) {
+                alert('没有可供下载的翻译文件。');
+                return;
+            }
+
+            document.getElementById('download-srt-btn').textContent = '正在打包...';
+            document.getElementById('download-srt-btn').disabled = true;
+            
+            zip.generateAsync({ type: "blob" })
+                .then(function(content) {
+                    const downloadUrl = URL.createObjectURL(content);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = 'All_SRT_Subtitles_Edited.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(downloadUrl);
+                    
+                    document.getElementById('download-srt-btn').textContent = '下载最新SRT (ZIP)';
+                    document.getElementById('download-srt-btn').disabled = false;
+                    alert(`成功打包 ${fileCount} 个文件并开始下载！`);
+                })
+                .catch(function(error) {
+                    console.error('ZIP creation failed:', error);
+                    document.getElementById('download-srt-btn').textContent = '下载失败';
+                    document.getElementById('download-srt-btn').disabled = false;
+                    alert('ZIP 文件生成失败，请检查控制台错误信息。');
+                });
+        }
+
+
+        // --- 事件监听器绑定 ---
+
+        document.getElementById('edit-btn').addEventListener('click', startEditing);
+        document.getElementById('apply-filter-btn').addEventListener('click', applyFilter);
+        document.getElementById('download-srt-btn').addEventListener('click', downloadAllSrt);
+        document.getElementById('second-round-btn').addEventListener('click', runSecondRoundComparison);
+
+
+        // ①开始对比（秒）按钮
+        document.getElementById('compare-btn').addEventListener('click', function() {
+            const originalFiles = document.getElementById('original-files').files;
+            const translatedFiles = document.getElementById('translated-files').files;
+            
+            if (originalFiles.length === 0 || translatedFiles.length === 0) {
+                alert('请上传原始文件和翻译文件');
+                return;
+            }
+            
+            this.disabled = true;
+            this.textContent = '对比中（Step 1）...';
+            document.getElementById('second-round-btn').disabled = true;
+            
+            const sortedOriginalFiles = sortFilesByNumber(originalFiles);
+            const sortedTranslatedFiles = Array.from(translatedFiles);
+            
+            const resultContainer = document.getElementById('result-container');
+            resultContainer.style.display = 'block';
+            resultContainer.innerHTML = '<h2>对比结果</h2>';
+            
+            globalComparisonResults = []; 
+            globalOriginalFiles = {};
+
+            let progress = 0;
+            const totalFiles = sortedOriginalFiles.length;
+            
+            const progressIndicator = document.createElement('div');
+            progressIndicator.id = 'progress-indicator';
+            progressIndicator.textContent = '第一步对比中，请稍候...';
+            progressIndicator.style.textAlign = 'center';
+            progressIndicator.style.margin = '20px 0';
+            resultContainer.appendChild(progressIndicator);
+            
+            const promises = sortedOriginalFiles.map((originalFile) => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const originalContent = e.target.result;
+                        const originalFileKey = getFileSortKey(originalFile.name);
+                        
+                        let translatedFile = sortedTranslatedFiles.find(f => getFileSortKey(f.name) === originalFileKey);
+                        
+                        if (translatedFile) {
+                            const translatedReader = new FileReader();
+                            translatedReader.onload = function(e) {
+                                const translatedContent = e.target.result;
+                                const comparisonResult = compareEpisodesStep1(originalContent, translatedContent);
+                                
+                                resolve({
+                                    fileName: originalFile.name,
+                                    comparisonResult: comparisonResult
+                                });
+                                
+                                progress++;
+                                if (progress < totalFiles) {
+                                    document.getElementById('progress-indicator').textContent = `第一步对比中... (${progress}/${totalFiles})`;
+                                } else {
+                                    setTimeout(() => {
+                                        if (document.getElementById('progress-indicator')) {
+                                             resultContainer.removeChild(document.getElementById('progress-indicator'));
+                                        }
+                                    }, 500);
+                                }
+                            };
+                            translatedReader.readAsText(translatedFile);
+                        } else {
+                            resolve({
+                                fileName: originalFile.name,
+                                comparisonResult: {},
+                                missing: true
+                            });
+                            progress++;
+                            if (progress < totalFiles) {
+                                document.getElementById('progress-indicator').textContent = `第一步对比中... (${progress}/${totalFiles})`;
+                            } else {
+                                setTimeout(() => {
+                                    if (document.getElementById('progress-indicator')) {
+                                        resultContainer.removeChild(document.getElementById('progress-indicator'));
+                                    }
+                                }, 500);
+                            }
+                        }
+                    };
+                    reader.readAsText(originalFile);
+                });
+            });
+            
+            Promise.all(promises).then(results => {
+                document.getElementById('compare-btn').disabled = false;
+                document.getElementById('compare-btn').textContent = '①开始对比（秒）';
+                document.getElementById('second-round-btn').disabled = false; // 启用二轮对比按钮
+                
+                globalComparisonResults = results;
+                
+                Array.from(originalFiles).forEach(file => {
+                    globalOriginalFiles[getFileSortKey(file.name)] = file.name;
+                });
+                
+                renderResults();
+                alert('第一步（秒级严格匹配）已完成。请检查结果或点击“②二轮对比”进行毫秒对齐。');
+            });
+        });
+    </script>
+</body>
+</html>
