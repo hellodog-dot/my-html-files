@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SRT时间轴检查与修改工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -51,9 +53,14 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            transition: background-color 0.3s;
         }
-        button:hover {
+        button:hover:not(:disabled) {
             background-color: #0b7dda;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
         }
         #results {
             margin-top: 20px;
@@ -68,10 +75,14 @@
             background-color: #f8d7da;
             border-color: #f5c6cb;
         }
+        .file-result.success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
         .download-btn {
             background-color: #ff9800;
         }
-        .download-btn:hover {
+        .download-btn:hover:not(:disabled) {
             background-color: #e68a00;
         }
         pre {
@@ -88,263 +99,93 @@
             padding: 15px;
             background-color: #e9ecef;
             border-radius: 4px;
+            font-weight: bold;
+        }
+        .step-title {
+            color: #2196F3;
+            font-weight: bold;
+            border-bottom: 2px solid #2196F3;
+            padding-bottom: 5px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        #progress {
+            margin-top: 10px;
+            background-color: #f3f3f3;
+            border-radius: 4px;
+            overflow: hidden;
+            /* 默认隐藏，在修改时显示 */
+            display: none; 
+        }
+        #progressBar {
+            height: 20px;
+            background-color: #4CAF50;
+            width: 0%;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            transition: width 0.3s;
+        }
+        #downloadProgress {
+            margin-top: 5px;
+            color: #ff9800;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <h1>SRT时间轴检查与修改工具</h1>
-    <p>此工具批量删除1小时时间轴（一般用于修改达芬奇的srt）</p>
+    <p>此工具批量删除时间轴中的“1小时”部分（例如将 **01**:00:01 修正为 **00**:00:01，常用于修正达芬奇导出的 SRT）。</p>
     
     <div class="upload-container">
         <label for="fileInput" class="upload-btn">选择SRT文件</label>
         <input type="file" id="fileInput" multiple accept=".srt">
-        <p>请选择一个或多个SRT字幕文件</p>
+        <p id="uploadStatus">请选择一个或多个SRT字幕文件 (.srt)</p>
     </div>
     
     <div class="action-buttons">
-        <button id="checkBtn">检查时间轴</button>
-        <button id="modifyBtn" disabled>批量修改时间轴</button>
-        <button id="downloadBtn" disabled class="download-btn">下载修改后的文件</button>
+        <button id="checkBtn" disabled>1 检查时间轴</button>
+        <button id="modifyBtn" disabled>2 批量修改时间轴</button>
+        <button id="downloadBtn" disabled class="download-btn">3 下载修改后的文件 (ZIP)</button>
     </div>
     
+    <div id="progress">
+        <div id="progressBar">0%</div>
+    </div>
+    <p id="downloadProgress" style="display:none;">正在打包文件，请稍候...</p>
+
     <div id="results"></div>
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // --- 元素获取 ---
             const fileInput = document.getElementById('fileInput');
             const checkBtn = document.getElementById('checkBtn');
             const modifyBtn = document.getElementById('modifyBtn');
             const downloadBtn = document.getElementById('downloadBtn');
             const resultsContainer = document.getElementById('results');
-            
-            let files = [];
-            let filesWithOverOneHour = [];
-            let modifiedFiles = [];
-            
-            // 选择文件
-            fileInput.addEventListener('change', function(e) {
-                files = Array.from(e.target.files);
-                resultsContainer.innerHTML = '';
-                
-                if (files.length > 0) {
-                    // 显示已选择的文件
-                    let fileNames = files.map(file => file.name).join(', ');
-                    resultsContainer.innerHTML = `<div class="summary">已选择 ${files.length} 个文件: ${fileNames}</div>`;
-                }
-            });
-            
-            // 检查时间轴
-            checkBtn.addEventListener('click', function() {
-                if (files.length === 0) {
-                    alert('请先选择SRT文件');
-                    return;
-                }
-                
-                resultsContainer.innerHTML = '<div class="summary">正在处理文件，请稍候...</div>';
-                filesWithOverOneHour = [];
-                
-                // 处理每个文件
-                files.forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const content = e.target.result;
-                        const result = checkSrtTimecodes(content, file.name);
-                        
-                        if (result.hasOverOneHour) {
-                            filesWithOverOneHour.push({
-                                file: file,
-                                content: content,
-                                overOneHourCount: result.overOneHourCount
-                            });
-                            
-                            const fileResult = document.createElement('div');
-                            fileResult.className = 'file-result error';
-                            fileResult.innerHTML = `
-                                <h3>${file.name}</h3>
-                                <p>发现 ${result.overOneHourCount} 处时间轴超过1小时</p>
-                                <pre>${result.example}</pre>
-                            `;
-                            resultsContainer.appendChild(fileResult);
-                        }
-                        
-                        // 检查是否所有文件都处理完毕
-                        if (filesWithOverOneHour.length + (files.length - filesWithOverOneHour.length) === files.length) {
-                            if (filesWithOverOneHour.length > 0) {
-                                modifyBtn.disabled = false;
-                                downloadBtn.disabled = false;
-                                
-                                const summary = document.createElement('div');
-                                summary.className = 'summary';
-                                summary.innerHTML = `<h3>总计发现 ${filesWithOverOneHour.length} 个文件存在超过1小时的时间轴</h3>`;
-                                resultsContainer.insertBefore(summary, resultsContainer.firstChild.nextSibling);
-                            } else {
-                                modifyBtn.disabled = true;
-                                downloadBtn.disabled = true;
-                                
-                                const summary = document.createElement('div');
-                                summary.className = 'summary';
-                                summary.innerHTML = `<h3>所有文件时间轴正常</h3>`;
-                                resultsContainer.innerHTML = summary.outerHTML;
-                            }
-                        }
-                    };
-                    reader.readAsText(file);
-                });
-            });
-            
-            // 批量修改时间轴
-            modifyBtn.addEventListener('click', function() {
-                if (filesWithOverOneHour.length === 0) {
-                    alert('没有需要修改的文件');
-                    return;
-                }
-                
-                resultsContainer.innerHTML = '<div class="summary">正在修改文件，请稍候...</div>';
-                modifiedFiles = [];
-                
-                filesWithOverOneHour.forEach(item => {
-                    const modifiedContent = modifySrtTimecodes(item.content);
-                    
-                    modifiedFiles.push({
-                        name: item.file.name,
-                        content: modifiedContent
-                    });
-                    
-                    const fileResult = document.createElement('div');
-                    fileResult.className = 'file-result';
-                    fileResult.innerHTML = `
-                        <h3>${item.file.name}</h3>
-                        <p>时间轴已成功修改</p>
-                        <pre>${getModificationExample(item.content, modifiedContent)}</pre>
-                    `;
-                    resultsContainer.appendChild(fileResult);
-                    
-                    // 检查是否所有文件都处理完毕
-                    if (modifiedFiles.length === filesWithOverOneHour.length) {
-                        downloadBtn.disabled = false;
-                        
-                        const summary = document.createElement('div');
-                        summary.className = 'summary';
-                        summary.innerHTML = `<h3>所有 ${modifiedFiles.length} 个文件已成功修改</h3>`;
-                        resultsContainer.insertBefore(summary, resultsContainer.firstChild.nextSibling);
-                    }
-                });
-            });
-            
-            // 下载修改后的文件
-            downloadBtn.addEventListener('click', function() {
-                if (modifiedFiles.length === 0) {
-                    alert('没有可下载的文件');
-                    return;
-                }
-                
-                modifiedFiles.forEach(file => {
-                    const blob = new Blob([file.content], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = file.name;
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                });
-                
-                alert('所有文件已下载完成');
-            });
-            
-            // 检查SRT时间轴
-            function checkSrtTimecodes(content, fileName) {
-                const lines = content.split('\n');
-                let hasOverOneHour = false;
-                let overOneHourCount = 0;
-                let example = '';
-                let foundExample = false;
-                
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    const timecodeMatch = line.match(/(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})/);
-                    
-                    if (timecodeMatch) {
-                        const start = parseTimecode(timecodeMatch[1]);
-                        const end = parseTimecode(timecodeMatch[2]);
-                        
-                        if (start >= 3600000 || end >= 3600000) { // 1小时 = 3600000毫秒
-                            hasOverOneHour = true;
-                            overOneHourCount++;
-                            
-                            if (!foundExample) {
-                                // 获取上下文
-                                const contextLines = [];
-                                if (i > 0) contextLines.push(lines[i-1]);
-                                contextLines.push(lines[i]);
-                                if (i < lines.length - 1) contextLines.push(lines[i+1]);
-                                
-                                example = contextLines.join('\n');
-                                foundExample = true;
-                            }
-                        }
-                    }
-                }
-                
-                return {
-                    hasOverOneHour: hasOverOneHour,
-                    overOneHourCount: overOneHourCount,
-                    example: example
-                };
+            const uploadStatus = document.getElementById('uploadStatus');
+            const progressBarElement = document.getElementById('progressBar');
+            const progressContainer = document.getElementById('progress');
+            const downloadProgress = document.getElementById('downloadProgress');
+
+            // --- 状态变量 ---
+            let files = []; 
+            let filesWithOverOneHour = []; 
+            let modifiedFiles = []; 
+
+            // --- 辅助函数 ---
+
+            /**
+             * 尝试从文件名中提取第一个数字作为集数。
+             * @param {string} fileName 
+             * @returns {string} 提取到的集数（字符串）或文件名
+             */
+            function getEpisodeNumber(fileName) {
+                const match = fileName.match(/\d+/);
+                return match ? match[0] : fileName;
             }
-            
-            // 修改SRT时间轴
-            function modifySrtTimecodes(content) {
-                return content.replace(/(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})/g, function(match, start, end) {
-                    const startTime = parseTimecode(start);
-                    const endTime = parseTimecode(end);
-                    
-                    // 如果时间超过1小时，减去1小时
-                    if (startTime >= 3600000) {
-                        const newStartTime = formatTimecode(startTime - 3600000);
-                        start = newStartTime;
-                    }
-                    
-                    if (endTime >= 3600000) {
-                        const newEndTime = formatTimecode(endTime - 3600000);
-                        end = newEndTime;
-                    }
-                    
-                    return `${start} --> ${end}`;
-                });
-            }
-            
-            // 获取修改示例
-            function getModificationExample(originalContent, modifiedContent) {
-                const originalLines = originalContent.split('\n');
-                const modifiedLines = modifiedContent.split('\n');
-                let example = '';
-                
-                for (let i = 0; i < originalLines.length; i++) {
-                    if (originalLines[i] !== modifiedLines[i]) {
-                        // 获取上下文
-                        const contextLines = [];
-                        if (i > 0) contextLines.push(originalLines[i-1]);
-                        contextLines.push(originalLines[i]);
-                        if (i < originalLines.length - 1) contextLines.push(originalLines[i+1]);
-                        
-                        example += `原内容:\n${contextLines.join('\n')}\n`;
-                        
-                        const modifiedContextLines = [];
-                        if (i > 0) modifiedContextLines.push(modifiedLines[i-1]);
-                        modifiedContextLines.push(modifiedLines[i]);
-                        if (i < modifiedLines.length - 1) modifiedContextLines.push(modifiedLines[i+1]);
-                        
-                        example += `修改后:\n${modifiedContextLines.join('\n')}\n`;
-                        break;
-                    }
-                }
-                
-                return example;
-            }
-            
+
             // 解析时间轴为毫秒
             function parseTimecode(timecode) {
                 const parts = timecode.split(/[:.,]/);
@@ -352,7 +193,6 @@
                 const minutes = parseInt(parts[1], 10);
                 const seconds = parseInt(parts[2], 10);
                 const milliseconds = parseInt(parts[3], 10);
-                
                 return (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + milliseconds;
             }
             
@@ -367,6 +207,293 @@
                 
                 return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')},${remainingMilliseconds.toString().padStart(3, '0')}`;
             }
+
+            // 检查SRT时间轴
+            function checkSrtTimecodes(content) {
+                let hasOverOneHour = false;
+                let overOneHourCount = 0;
+                let example = '';
+                let foundExample = false;
+                const timecodeRegex = /(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})/g;
+                
+                let match;
+                while ((match = timecodeRegex.exec(content)) !== null) {
+                    const start = parseTimecode(match[1]);
+                    const end = parseTimecode(match[2]);
+                    
+                    if (start >= 3600000 || end >= 3600000) { 
+                        hasOverOneHour = true;
+                        overOneHourCount++;
+                        
+                        if (!foundExample) {
+                            const startIndex = content.lastIndexOf('\n\n', match.index) + 2; 
+                            let endIndex = content.indexOf('\n\n', match.index); 
+                            if (endIndex === -1) endIndex = content.length;
+
+                            example = content.substring(startIndex, endIndex).trim();
+                            foundExample = true;
+                        }
+                    }
+                }
+
+                return {
+                    hasOverOneHour: hasOverOneHour,
+                    overOneHourCount: overOneHourCount,
+                    example: example
+                };
+            }
+
+            // 修改SRT时间轴
+            function modifySrtTimecodes(content) {
+                return content.replace(/(\d{2}):(\d{2}:\d{2},\d{3}) --> (\d{2}):(\d{2}:\d{2},\d{3})/g, function(match, startHours, startRest, endHours, endRest) {
+                    let newStartHours = parseInt(startHours, 10);
+                    let newEndHours = parseInt(endHours, 10);
+
+                    if (newStartHours >= 1) {
+                        newStartHours -= 1;
+                    }
+                    if (newEndHours >= 1) {
+                        newEndHours -= 1;
+                    }
+                    
+                    const newStartTime = newStartHours.toString().padStart(2, '0') + ':' + startRest;
+                    const newEndTime = newEndHours.toString().padStart(2, '0') + ':' + endRest;
+                    
+                    return `${newStartTime} --> ${newEndTime}`;
+                });
+            }
+
+            // 获取修改示例
+            function getModificationExample(originalContent, modifiedContent) {
+                const originalBlocks = originalContent.split('\n\n').filter(block => block.trim() !== '');
+                const modifiedBlocks = modifiedContent.split('\n\n').filter(block => block.trim() !== '');
+                
+                for (let i = 0; i < originalBlocks.length; i++) {
+                    if (originalBlocks[i] !== modifiedBlocks[i]) {
+                        return `原内容:
+${originalBlocks[i]}
+修改后:
+${modifiedBlocks[i]}`.trim();
+                    }
+                }
+                return '未找到修改示例（修改不成功或未修改）';
+            }
+
+
+            // --- 事件监听器 ---
+
+            // 1. 选择文件
+            fileInput.addEventListener('change', function(e) {
+                files = Array.from(e.target.files).filter(file => file.name.toLowerCase().endsWith('.srt'));
+                resultsContainer.innerHTML = '';
+                filesWithOverOneHour = [];
+                modifiedFiles = [];
+                modifyBtn.disabled = true;
+                downloadBtn.disabled = true;
+                progressContainer.style.display = 'none';
+                progressBarElement.style.width = '0%';
+                downloadProgress.style.display = 'none';
+                
+                if (files.length > 0) {
+                    uploadStatus.innerHTML = `已选择 **${files.length}** 集 SRT 文件，点击 **1 检查时间轴** 开始。`;
+                    checkBtn.disabled = false;
+                } else {
+                    uploadStatus.innerHTML = `请选择一个或多个SRT字幕文件 (.srt)`;
+                    checkBtn.disabled = true;
+                }
+            });
+
+            // 2. 检查时间轴 
+            checkBtn.addEventListener('click', function() {
+                if (files.length === 0) {
+                    alert('请先选择SRT文件');
+                    return;
+                }
+
+                resultsContainer.innerHTML = '<div class="step-title">第一步：检查时间轴结果</div><div class="summary">正在检查，请稍候...</div>';
+                checkBtn.disabled = true;
+                modifyBtn.disabled = true;
+                downloadBtn.disabled = true;
+                filesWithOverOneHour = [];
+                let checkedCount = 0;
+                
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const content = e.target.result;
+                        const result = checkSrtTimecodes(content);
+                        
+                        checkedCount++;
+
+                        if (result.hasOverOneHour) {
+                            filesWithOverOneHour.push({
+                                file: file,
+                                content: content,
+                                overOneHourCount: result.overOneHourCount,
+                                episodeNumber: getEpisodeNumber(file.name)
+                            });
+                        }
+                        
+                        // 所有文件处理完毕
+                        if (checkedCount === files.length) {
+                            
+                            const totalFiles = files.length;
+                            const filesToModify = filesWithOverOneHour.length;
+                            const normalFiles = totalFiles - filesToModify;
+
+                            resultsContainer.innerHTML = `<div class="step-title">第一步：检查时间轴结果</div>`;
+                            
+                            let summaryHtml = `<div class="summary">`;
+
+                            // 格式 1: 全集【x集】，其中【x集】时间轴无误
+                            summaryHtml += `全集【**${totalFiles}** 集】，其中【**${normalFiles}** 集】时间轴无误<br>`;
+                            
+                            // 格式 2: 超过1小时时间轴的集数：总X集，1、6、8
+                            if (filesToModify > 0) {
+                                modifyBtn.disabled = false;
+                                const episodeNumbers = filesWithOverOneHour.map(item => item.episodeNumber).join('、');
+                                
+                                summaryHtml += `超过1小时时间轴的集数：总**${filesToModify}**集，**${episodeNumbers}**`;
+                            } else {
+                                summaryHtml += `所有文件时间轴正常。`;
+                                modifyBtn.disabled = true;
+                            }
+                            
+                            summaryHtml += `</div>`;
+                            resultsContainer.innerHTML += summaryHtml;
+                            
+                            // 显示有问题的文件的预览
+                            filesWithOverOneHour.forEach(item => {
+                                const fileResult = document.createElement('div');
+                                fileResult.className = 'file-result error';
+                                fileResult.innerHTML = `
+                                    <h3>${item.file.name} (集数: ${item.episodeNumber})</h3>
+                                    <p>发现 **${item.overOneHourCount}** 处时间轴超过1小时（示例）:</p>
+                                    <pre>${item.example}</pre>
+                                `;
+                                resultsContainer.appendChild(fileResult);
+                            });
+
+                            checkBtn.disabled = false;
+                        }
+                    };
+                    reader.onerror = function() {
+                        checkedCount++;
+                        if (checkedCount === files.length) {
+                             checkBtn.disabled = false;
+                        }
+                    };
+                    reader.readAsText(file);
+                });
+            });
+
+            // 3. 批量修改时间轴
+            modifyBtn.addEventListener('click', function() {
+                if (filesWithOverOneHour.length === 0) {
+                    alert('没有需要修改的文件');
+                    return;
+                }
+                
+                resultsContainer.innerHTML = `<div class="step-title">第二步：批量修改时间轴</div><div class="summary">正在修改 ${filesWithOverOneHour.length} 个文件...</div>`;
+                modifyBtn.disabled = true;
+                downloadBtn.disabled = true;
+                modifiedFiles = [];
+                progressContainer.style.display = 'block';
+                
+                filesWithOverOneHour.forEach((item, index) => {
+                    setTimeout(() => {
+                        const modifiedContent = modifySrtTimecodes(item.content);
+                        
+                        modifiedFiles.push({
+                            name: item.file.name,
+                            content: modifiedContent,
+                            originalContent: item.content
+                        });
+                        
+                        const progress = Math.floor(((index + 1) / filesWithOverOneHour.length) * 100);
+                        progressBarElement.style.width = progress + '%';
+                        progressBarElement.textContent = progress + '%';
+                        
+                        if (modifiedFiles.length === filesWithOverOneHour.length) {
+                            progressBarElement.textContent = '已完成';
+                            downloadBtn.disabled = false;
+                            
+                            resultsContainer.innerHTML = `<div class="step-title">第二步：批量修改时间轴 - 已完成</div>`;
+                            
+                            const summary = document.createElement('div');
+                            summary.className = 'summary';
+                            summary.innerHTML = `所有 **${modifiedFiles.length}** 个文件已成功修改`;
+                            resultsContainer.appendChild(summary);
+
+                            modifiedFiles.forEach(modifiedFile => {
+                                const fileResult = document.createElement('div');
+                                fileResult.className = 'file-result success';
+                                fileResult.innerHTML = `
+                                    <h3>${modifiedFile.name}</h3>
+                                    <p>时间轴已成功修改</p>
+                                    <pre>${getModificationExample(modifiedFile.originalContent, modifiedFile.content)}</pre>
+                                `;
+                                resultsContainer.appendChild(fileResult);
+                            });
+                        }
+                    }, 50); 
+                });
+            });
+
+            // 4. 使用 JSZip 打包下载 (已移除 MODIFIED_ 前缀)
+            downloadBtn.addEventListener('click', async function() {
+                if (modifiedFiles.length === 0) {
+                    alert('没有可下载的文件');
+                    return;
+                }
+                
+                // 禁用按钮并显示进度
+                downloadBtn.disabled = true;
+                downloadProgress.style.display = 'block';
+                downloadProgress.textContent = '正在创建 ZIP 文件...';
+
+                // 创建 JSZip 实例
+                const zip = new JSZip();
+
+                // 将所有修改后的文件添加到 ZIP，使用原始文件名
+                modifiedFiles.forEach(file => {
+                    // *** 关键修改: 移除了 MODIFIED_ 前缀 ***
+                    zip.file(file.name, file.content); 
+                });
+
+                try {
+                    // 生成 ZIP 文件 (Blob)
+                    const zipBlob = await zip.generateAsync({
+                        type: "blob",
+                        compression: "DEFLATE",
+                        compressionOptions: {
+                            level: 9
+                        }
+                    }, function updateCallback(metadata) {
+                        // 更新进度条
+                        if (metadata.percent) {
+                             downloadProgress.textContent = `正在打包文件: ${Math.round(metadata.percent)}%`;
+                        }
+                    });
+
+                    // 使用 FileSaver.js 库进行下载
+                    // ZIP 文件的名称保持不变，内部文件使用原始名称
+                    saveAs(zipBlob, `Modified_SRT_Files_${new Date().toISOString().slice(0, 10)}.zip`);
+
+                    downloadProgress.textContent = `ZIP 文件已开始下载。`;
+                    
+                } catch (error) {
+                    alert('ZIP 文件生成或下载失败: ' + error.message);
+                    downloadProgress.textContent = '下载失败';
+                } finally {
+                    // 最终重新启用按钮
+                    downloadBtn.disabled = false;
+                    // 保持下载进度显示几秒钟
+                    setTimeout(() => {
+                         downloadProgress.style.display = 'none';
+                    }, 5000);
+                }
+            });
         });
     </script>
 </body>
