@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TXT文件章节提取工具</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .section {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 5px solid #3498db;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #34495e;
+            font-size: 22px;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        input[type="file"] {
+            display: block;
+            margin-top: 10px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+            width: calc(100% - 20px);
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            background-color: #3498db;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .checkbox-group label {
+            background-color: #ecf0f1;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+        .checkbox-group label:hover {
+            background-color: #dfe4e6;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2);
+            accent-color: #3498db; /* Change checkbox color */
+        }
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+            background-color: #fdfdfd;
+            font-family: monospace; /* For better readability of extracted text */
+        }
+        #uploadStatus, #extractStatus {
+            margin-top: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #27ae60;
+            text-align: center;
+        }
+        #uploadStatus.error, #extractStatus.error {
+            color: #e74c3c;
+        }
+        #previewArea { /* This ID is not used in the JS, but kept for consistency if needed */
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #f9f9f9;
+            border: 1px dashed #ccc;
+            padding: 15px;
+            min-height: 100px;
+            max-height: 500px;
+            overflow-y: auto;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #555;
+        }
+        .not-found-summary {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #e74c3c;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TXT文件章节提取工具</h1>
+
+        <div id="step1" class="section">
+            <h2>步骤 1: 上传 .txt 文件</h2>
+            <input type="file" id="txtFileInput" multiple accept=".txt">
+            <p id="uploadStatus">请上传文件。</p>
+            <div class="button-group">
+                <button id="nextToStep2Btn" disabled>下一步：选择章节</button>
+            </div>
+        </div>
+
+        <div id="step2" class="section" style="display:none;">
+            <h2>步骤 2: 勾选要提取的段落标题</h2>
+            <div class="checkbox-group" id="chapterCheckboxes">
+            </div>
+            <div class="button-group">
+                <button id="backToStep1Btn">上一步</button>
+                <button id="nextToStep3Btn" disabled>下一步：提取</button>
+            </div>
+        </div>
+
+        <div id="step3" class="section" style="display:none;">
+            <h2>步骤 3: 提取与预览</h2>
+            <p id="extractStatus">勾选章节后，点击提取按钮。</p>
+            <div class="button-group">
+                <button id="backToStep2Btn2">上一步</button>
+                <button id="extractBtn" disabled>提取内容</button>
+            </div>
+            <h3>预览结果:</h3>
+            <textarea id="outputContent" readonly></textarea>
+            <div id="notFoundSummary" class="not-found-summary" style="display:none;"></div>
+            <div class="button-group">
+                <button id="exportTxtBtn" disabled>导出为 .txt</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM 元素引用
+        const txtFileInput = document.getElementById('txtFileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const nextToStep2Btn = document.getElementById('nextToStep2Btn');
+        const nextToStep3Btn = document.getElementById('nextToStep3Btn');
+        const extractBtn = document.getElementById('extractBtn');
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        const outputContent = document.getElementById('outputContent');
+        const chapterCheckboxesDiv = document.getElementById('chapterCheckboxes');
+        const extractStatus = document.getElementById('extractStatus');
+        const notFoundSummary = document.getElementById('notFoundSummary');
+
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+
+        const backToStep1Btn = document.getElementById('backToStep1Btn');
+        const backToStep2Btn2 = document.getElementById('backToStep2Btn2');
+
+        let uploadedFiles = [];
+        // 核心修改：已加入 "标签管理"
+        const chapterTitles = [
+            "本集简介",
+            "主要人物",
+            "核心主题/冲突",
+            "整体风格/基调",
+            "关键情节点",
+            "台词逐字稿",
+            "文化与背景注释",
+            "标签管理" // <-- 新增字段
+        ];
+
+        // 初始化章节选择器
+        function initChapterCheckboxes() {
+            chapterCheckboxesDiv.innerHTML = ''; // 清空现有选项
+            chapterTitles.forEach(title => {
+                const label = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'chapter';
+                checkbox.value = title;
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(title));
+                chapterCheckboxesDiv.appendChild(label);
+            });
+
+            // 监听checkboxes的变化以启用/禁用下一步和提取按钮
+            chapterCheckboxesDiv.addEventListener('change', () => {
+                const checkedCount = document.querySelectorAll('input[name="chapter"]:checked').length;
+                nextToStep3Btn.disabled = checkedCount === 0;
+                extractBtn.disabled = checkedCount === 0;
+            });
+        }
+
+        // --- 步骤控制函数 ---
+        function showStep(stepNum) {
+            step1.style.display = 'none';
+            step2.style.display = 'none';
+            step3.style.display = 'none';
+
+            if (stepNum === 1) {
+                step1.style.display = 'block';
+            } else if (stepNum === 2) {
+                step2.style.display = 'block';
+            } else if (stepNum === 3) {
+                step3.style.display = 'block';
+            }
+        }
+
+        // --- 事件监听器 ---
+
+        txtFileInput.addEventListener('change', (event) => {
+            uploadedFiles = Array.from(event.target.files);
+            if (uploadedFiles.length > 0) {
+                uploadStatus.textContent = `已上传 ${uploadedFiles.length} 个文件。`;
+                uploadStatus.className = 'uploadStatus';
+                nextToStep2Btn.disabled = false;
+            } else {
+                uploadStatus.textContent = '请上传文件。';
+                nextToStep2Btn.disabled = true;
+            }
+        });
+
+        nextToStep2Btn.addEventListener('click', () => {
+            if (uploadedFiles.length > 0) {
+                initChapterCheckboxes();
+                showStep(2);
+                nextToStep3Btn.disabled = true; // 默认禁用，直到勾选
+            } else {
+                uploadStatus.textContent = '请先上传TXT文件！';
+                uploadStatus.className = 'uploadStatus error';
+            }
+        });
+
+        backToStep1Btn.addEventListener('click', () => {
+            showStep(1);
+            // 重置一些状态
+            uploadedFiles = [];
+            txtFileInput.value = ''; // 清空文件选择
+            uploadStatus.textContent = '请上传文件。';
+            nextToStep2Btn.disabled = true;
+        });
+
+        nextToStep3Btn.addEventListener('click', () => {
+            const checkedChapters = document.querySelectorAll('input[name="chapter"]:checked');
+            if (checkedChapters.length > 0) {
+                showStep(3);
+                outputContent.value = ''; // 清空上次提取结果
+                notFoundSummary.style.display = 'none'; // 隐藏未找到章节的汇总信息
+                exportTxtBtn.disabled = true; // 默认禁用导出，直到提取完成
+                extractStatus.textContent = '勾选章节后，点击提取按钮。';
+                extractStatus.className = 'extractStatus';
+            } else {
+                extractStatus.textContent = '请至少勾选一个章节！';
+                extractStatus.className = 'extractStatus error';
+            }
+        });
+
+        backToStep2Btn2.addEventListener('click', () => {
+            showStep(2);
+            outputContent.value = ''; // 清空预览区
+            notFoundSummary.style.display = 'none'; // 隐藏未找到章节的汇总信息
+            exportTxtBtn.disabled = true;
+        });
+
+        extractBtn.addEventListener('click', async () => {
+            extractStatus.textContent = '正在提取内容，请稍候...';
+            extractStatus.className = 'extractStatus';
+            outputContent.value = '';
+            notFoundSummary.style.display = 'none';
+            exportTxtBtn.disabled = true;
+            extractBtn.disabled = true; // 提取过程中禁用按钮，避免重复点击
+
+            const selectedChapters = Array.from(document.querySelectorAll('input[name="chapter"]:checked'))
+                                         .map(cb => cb.value);
+
+            if (selectedChapters.length === 0) {
+                extractStatus.textContent = '请至少选择一个章节标题进行提取！';
+                extractStatus.className = 'extractStatus error';
+                extractBtn.disabled = false; // 重新启用按钮
+                return;
+            }
+
+            let extractedResults = [];
+            const missingChaptersByFile = {}; // 用于存储每个文件未找到的章节
+
+            try {
+                for (let i = 0; i < uploadedFiles.length; i++) {
+                    const file = uploadedFiles[i];
+                    let fileContent;
+                    try {
+                        fileContent = await file.text(); // 尝试读取文件内容
+                    } catch (readError) {
+                        extractStatus.textContent = `读取文件 ${file.name} 失败: ${readError.message}`;
+                        extractStatus.className = 'extractStatus error';
+                        console.error(`Error reading file ${file.name}:`, readError);
+                        extractedResults.push(`### 错误：无法读取文件 ${file.name}\n\n`);
+                        continue; // 跳过当前文件，处理下一个
+                    }
+
+                    // 使用文件名作为标题的一部分，并移除 .txt 后缀
+                    let episodeTitle = file.name.replace(/\.txt$/i, '');
+                    const episodeNumMatch = episodeTitle.match(/^(\d+(?:-\d+)?)/);
+                    if (episodeNumMatch) {
+                        episodeTitle = `第${episodeNumMatch[1]}集.${episodeTitle.replace(episodeNumMatch[1], '').trim()}`;
+                    } else {
+                        // 如果文件名没有数字前缀，直接使用文件名作为标题，或者默认第几集
+                        episodeTitle = `第${i + 1}集.${episodeTitle}`;
+                    }
+
+                    let episodeContent = `# ${episodeTitle}\n\n`;
+                    let currentFileMissingChapters = []; // 记录当前文件未找到的章节
+
+                    // 对章节标题进行排序，以确保正则匹配的顺序性
+                    // 这有助于防止较短的章节标题被匹配为较长章节的起始部分
+                    const sortedChapterTitles = [...chapterTitles].sort((a, b) => b.length - a.length);
+
+                    // 构建一个动态的先行断言，包含所有章节标题，确保能正确找到下一个章节的起始点
+                    const allChapterPatterns = sortedChapterTitles.map(t => escapeRegExp(t)).join('|');
+                    const nextChapterLookahead = `(?=\\n?[\\s\\u00A0\\u3000]*(?:#+\\s*)?(?:\\d+\\.\\s*(?:.*?:\\s*)?)?(?:${allChapterPatterns})|$)`;
+
+                    selectedChapters.forEach(chapter => {
+                        let match = null;
+                        const escapedChapter = escapeRegExp(chapter);
+
+                        // 匹配优先级：尝试各种标题格式
+                        const regexPatterns = [
+                            // 匹配带有 # 和可选数字前缀以及冒号的标题（最具体）
+                            new RegExp(`(?:^|\\n)[\\s\\u00A0\\u3000]*#+\\s*(?:\\d+\\.\\s*)?${escapedChapter}:[\\s\\u00A0\\u3000]*\\n([\\s\\S]*?)${nextChapterLookahead}`, 'i'),
+                            // 匹配带有数字前缀和冒号的标题
+                            new RegExp(`(?:^|\\n)[\\s\\u00A0\\u3000]*\\d+\\.\\s*${escapedChapter}:[\\s\\u00A0\\u3000]*\\n([\\s\\S]*?)${nextChapterLookahead}`, 'i'),
+                            // 匹配带有 # 和可选数字前缀的标题 (不带冒号)
+                            new RegExp(`(?:^|\\n)[\\s\\u00A0\\u3000]*#+\\s*(?:\\d+\\.\\s*)?${escapedChapter}[\\s\\u00A0\\u3000]*\\n([\\s\\S]*?)${nextChapterLookahead}`, 'i'),
+                            // 匹配带有数字前缀的标题 (不带 # 或冒号)
+                            new RegExp(`(?:^|\\n)[\\s\\u00A0\\u3000]*\\d+\\.\\s*${escapedChapter}[\\s\\u00A0\\u3000]*\\n([\\s\\S]*?)${nextChapterLookahead}`, 'i'),
+                            // 匹配纯标题（不带 # 或数字前缀）
+                            new RegExp(`(?:^|\\n)[\\s\\u00A0\\u3000]*${escapedChapter}[\\s\\u00A0\\u3000]*\\n([\\s\\S]*?)${nextChapterLookahead}`, 'i')
+                        ];
+
+                        for (const regex of regexPatterns) {
+                            match = fileContent.match(regex);
+                            if (match) {
+                                break; // 找到匹配就停止
+                            }
+                        }
+
+                        if (match && match[1]) {
+                            let content = match[1].trim();
+                            // 移除内容开头的序号（如1. 2. 3. ）以及多余的星号或空格
+                            content = content.replace(/^(\*\s*|\d+\.\s*|\*\s*\d+\.\s*)/gm, '');
+                            content = content.replace(/^[*-]\s*/gm, '');
+                            content = content.replace(/^[*\s]+|\s*[*]+$/g, '');
+
+                            episodeContent += `## ${chapter}\n${content}\n\n`;
+                        } else {
+                            episodeContent += `## ${chapter}\n(未找到该章节)\n\n`;
+                            // 记录当前文件未找到的章节，以便后续汇总
+                            if (!missingChaptersByFile[file.name]) {
+                                missingChaptersByFile[file.name] = new Set();
+                            }
+                            missingChaptersByFile[file.name].add(chapter);
+                        }
+                    });
+                    extractedResults.push(episodeContent);
+                }
+
+                outputContent.value = extractedResults.join('---\n\n'); // 使用 --- 分隔每集内容
+                extractStatus.textContent = '内容提取完成！';
+                extractStatus.className = 'extractStatus';
+                exportTxtBtn.disabled = false;
+
+                // 显示未找到章节的汇总信息
+                const missingFiles = Object.keys(missingChaptersByFile);
+                if (missingFiles.length > 0) {
+                    let summaryText = '未找到章节：';
+                    // 仅列出文件名，如果需要显示具体章节，可以调整
+                    summaryText += missingFiles.map(fileName => {
+                        return fileName;
+                    }).join('、');
+                    notFoundSummary.textContent = summaryText;
+                    notFoundSummary.style.display = 'block';
+                } else {
+                    notFoundSummary.style.display = 'none';
+                }
+
+            } catch (globalError) {
+                extractStatus.textContent = `提取过程中发生未知错误: ${globalError.message}`;
+                extractStatus.className = 'extractStatus error';
+                console.error("Global extraction error:", globalError);
+            } finally {
+                extractBtn.disabled = false; // 无论成功失败，都重新启用提取按钮
+            }
+        });
+
+        exportTxtBtn.addEventListener('click', () => {
+            const contentToExport = outputContent.value;
+            if (contentToExport) {
+                const blob = new Blob([contentToExport], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'extracted_content.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } else {
+                extractStatus.textContent = '没有内容可供导出。请先提取。';
+                extractStatus.className = 'extractStatus error';
+            }
+        });
+
+        // 辅助函数：转义正则表达式中的特殊字符
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            showStep(1); // 默认显示步骤1
+            initChapterCheckboxes(); // 预加载章节选项
+        });
+    </script>
+</body>
+</html>
