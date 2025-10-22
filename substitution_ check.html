@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>术语翻译检查工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.4;
+            padding: 15px;
+            font-size: 13px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            font-size: 22px;
+        }
+        
+        .description {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #7f8c8d;
+            font-size: 13px;
+        }
+        
+        .upload-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .upload-box {
+            flex: 1;
+            min-width: 280px;
+            border: 2px dashed #3498db;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+            background-color: #f8fafc;
+            transition: all 0.3s;
+        }
+        
+        .upload-box:hover {
+            background-color: #e8f4fc;
+        }
+        
+        .upload-box h3 {
+            margin-bottom: 10px;
+            color: #3498db;
+            font-size: 16px;
+        }
+        
+        .file-input {
+            margin: 10px 0;
+            width: 100%;
+        }
+        
+        .terms-section {
+            margin-bottom: 20px;
+        }
+        
+        .terms-section h2 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-size: 13px;
+        }
+        
+        .button-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .results-section {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .results-section h2 {
+            margin-bottom: 12px;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        
+        .result-filters {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 12px;
+        }
+        
+        .filter-btn.active {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .episode-section {
+            margin-bottom: 20px;
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .episode-header {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .episode-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        
+        .episode-content {
+            display: block;
+        }
+        
+        .episode-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        
+        .episode-table th {
+            background-color: #f8f9fa;
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #e1e8ed;
+            font-weight: 600;
+            color: #2c3e50;
+            white-space: nowrap;
+        }
+        
+        .episode-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e1e8ed;
+            vertical-align: top;
+        }
+        
+        .episode-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .episode-table tr:hover {
+            background-color: #f8fafc;
+        }
+        
+        .result-correct {
+            color: #2ecc71;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .result-incorrect {
+            color: #e74c3c;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .highlight {
+            background-color: #fffacd;
+            padding: 1px 3px;
+            border-radius: 2px;
+        }
+        
+        .error-highlight {
+            background-color: #ffcccc;
+            padding: 1px 3px;
+            border-radius: 2px;
+        }
+        
+        .terms-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+        
+        .term-tag {
+            background-color: #e1f5fe;
+            color: #0277bd;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        
+        .timecode-cell {
+            white-space: nowrap;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        
+        .text-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.3;
+        }
+        
+        .summary {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .summary h3 {
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        
+        .summary-stats {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 8px;
+        }
+        
+        .stat {
+            padding: 8px 15px;
+            border-radius: 4px;
+            color: white;
+            font-size: 13px;
+        }
+        
+        .stat.correct {
+            background-color: #2ecc71;
+        }
+        
+        .stat.incorrect {
+            background-color: #e74c3c;
+        }
+        
+        .stat.total {
+            background-color: #3498db;
+        }
+        
+        .file-list {
+            margin-top: 8px;
+            text-align: left;
+            max-height: 120px;
+            overflow-y: auto;
+            padding: 8px;
+            background-color: white;
+            border-radius: 4px;
+            border: 1px solid #eee;
+            font-size: 12px;
+        }
+        
+        .file-item {
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 15px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        @media (max-width: 1200px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .episode-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .text-cell {
+                max-width: 180px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .upload-box {
+                min-width: 100%;
+            }
+            
+            .episode-table th, .episode-table td {
+                padding: 6px 8px;
+            }
+            
+            .text-cell {
+                max-width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>术语翻译检查工具</h1>
+        <p class="description">上传中英文SRT文件并输入术语对照表，检查术语翻译是否一致</p>
+        
+        <div class="upload-section">
+            <div class="upload-box">
+                <h3>上传中文SRT文件</h3>
+                <input type="file" id="chinese-srt" class="file-input" accept=".srt" multiple>
+                <p>支持多文件上传，按文件名序号匹配</p>
+                <div class="file-list" id="chinese-file-list"></div>
+            </div>
+            
+            <div class="upload-box">
+                <h3>上传翻译SRT文件</h3>
+                <input type="file" id="translation-srt" class="file-input" accept=".srt" multiple>
+                <p>支持多文件上传，按文件名序号匹配</p>
+                <div class="file-list" id="translation-file-list"></div>
+            </div>
+        </div>
+        
+        <div class="terms-section">
+            <h2>术语对照表</h2>
+            <textarea id="terms-input" placeholder="请输入术语对照表，格式如下：
+苏晗	>>>Mara Lewis
+何天>>>	Eli Hendrix
+叶逢春>>>	Howard Lane
+叶神医>>>	Dr. Lane
+老夫 >>>	I
+张老三>>>	Rick Walters
+张老板>>>	Mr. Walters
+何家>>>the Hendrixes"></textarea>
+        </div>
+        
+        <div class="button-section">
+            <button id="check-button">检查翻译</button>
+        </div>
+        
+        <div class="results-section" id="results-section">
+            <h2>检查结果</h2>
+            
+            <div class="result-filters">
+                <button class="filter-btn active" data-filter="all">全部结果</button>
+                <button class="filter-btn" data-filter="incorrect">仅显示翻译不一致</button>
+                <button class="filter-btn" data-filter="correct">仅显示翻译一致</button>
+            </div>
+            
+            <div id="results-container"></div>
+            <div class="summary" id="summary">
+                <h3>检查摘要</h3>
+                <div class="summary-stats">
+                    <div class="stat total">总计: <span id="total-count">0</span></div>
+                    <div class="stat correct">正确: <span id="correct-count">0</span></div>
+                    <div class="stat incorrect">错误: <span id="incorrect-count">0</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 存储文件列表
+        let chineseFiles = [];
+        let translationFiles = [];
+        
+        // 文件上传处理
+        document.getElementById('chinese-srt').addEventListener('change', function(e) {
+            chineseFiles = Array.from(e.target.files);
+            updateFileList('chinese-file-list', chineseFiles);
+        });
+        
+        document.getElementById('translation-srt').addEventListener('change', function(e) {
+            translationFiles = Array.from(e.target.files);
+            updateFileList('translation-file-list', translationFiles);
+        });
+        
+        function updateFileList(elementId, files) {
+            const fileList = document.getElementById(elementId);
+            fileList.innerHTML = '';
+            
+            if (files.length === 0) {
+                fileList.innerHTML = '<div class="file-item">暂无文件</div>';
+                return;
+            }
+            
+            files.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.textContent = file.name;
+                fileList.appendChild(fileItem);
+            });
+        }
+        
+        // 检查按钮点击事件
+        document.getElementById('check-button').addEventListener('click', function() {
+            if (chineseFiles.length === 0 || translationFiles.length === 0) {
+                alert('请上传中英文SRT文件');
+                return;
+            }
+            
+            const termsInput = document.getElementById('terms-input').value;
+            
+            if (!termsInput.trim()) {
+                alert('请输入术语对照表');
+                return;
+            }
+            
+            // 解析术语对照表
+            const terms = parseTerms(termsInput);
+            
+            // 按文件名匹配文件对
+            const filePairs = matchFiles(chineseFiles, translationFiles);
+            
+            if (filePairs.length === 0) {
+                alert('未找到匹配的文件对，请检查文件名');
+                return;
+            }
+            
+            // 读取并解析所有SRT文件
+            processAllFiles(filePairs, terms);
+        });
+        
+        // 按文件名匹配文件对
+        function matchFiles(chineseFiles, translationFiles) {
+            const pairs = [];
+            
+            chineseFiles.forEach(chineseFile => {
+                // 提取文件名中的序号（假设文件名包含数字序号）
+                const chineseMatch = chineseFile.name.match(/(\d+)/);
+                if (!chineseMatch) return;
+                
+                const chineseIndex = chineseMatch[1];
+                
+                // 查找对应的翻译文件
+                const translationFile = translationFiles.find(file => {
+                    const translationMatch = file.name.match(/(\d+)/);
+                    return translationMatch && translationMatch[1] === chineseIndex;
+                });
+                
+                if (translationFile) {
+                    pairs.push({
+                        chineseFile: chineseFile,
+                        translationFile: translationFile,
+                        index: chineseIndex
+                    });
+                }
+            });
+            
+            return pairs;
+        }
+        
+        // 处理所有文件
+        function processAllFiles(filePairs, terms) {
+            const allResults = [];
+            let processedPairs = 0;
+            
+            filePairs.forEach(pair => {
+                Promise.all([
+                    readFile(pair.chineseFile),
+                    readFile(pair.translationFile)
+                ]).then(([chineseContent, translationContent]) => {
+                    const chineseSubtitles = parseSRT(chineseContent);
+                    const translationSubtitles = parseSRT(translationContent);
+                    
+                    // 检查翻译一致性
+                    const results = checkTranslations(chineseSubtitles, translationSubtitles, terms, pair.index);
+                    
+                    allResults.push({
+                        fileIndex: pair.index,
+                        fileName: pair.chineseFile.name,
+                        results: results
+                    });
+                    
+                    processedPairs++;
+                    
+                    // 所有文件处理完成后显示结果
+                    if (processedPairs === filePairs.length) {
+                        displayResults(allResults);
+                    }
+                }).catch(error => {
+                    console.error('文件读取错误:', error);
+                    alert(`文件读取错误: ${pair.chineseFile.name} 或 ${pair.translationFile.name}`);
+                    processedPairs++;
+                    
+                    if (processedPairs === filePairs.length) {
+                        displayResults(allResults);
+                    }
+                });
+            });
+        }
+        
+        function parseTerms(termsText) {
+            const lines = termsText.split('\n');
+            const terms = {};
+            
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+                
+                // 支持多种分隔符格式
+                const separator = line.includes('>>>') ? '>>>' : '>>>';
+                const parts = line.split(separator);
+                
+                if (parts.length >= 2) {
+                    const chinese = parts[0].trim();
+                    const english = parts[1].trim();
+                    terms[chinese] = english;
+                }
+            });
+            
+            return terms;
+        }
+        
+        function readFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    resolve(e.target.result);
+                };
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+        
+        function parseSRT(content) {
+            const subtitles = [];
+            const blocks = content.split(/\n\s*\n/);
+            
+            blocks.forEach(block => {
+                const lines = block.trim().split('\n');
+                if (lines.length < 3) return;
+                
+                const id = lines[0].trim();
+                const timecode = lines[1].trim();
+                const text = lines.slice(2).join('\n').trim();
+                
+                subtitles.push({
+                    id: id,
+                    timecode: timecode,
+                    text: text
+                });
+            });
+            
+            return subtitles;
+        }
+        
+        function checkTranslations(chineseSubtitles, translationSubtitles, terms, fileIndex) {
+            const results = [];
+            
+            // 假设中英文字幕按顺序对应
+            const minLength = Math.min(chineseSubtitles.length, translationSubtitles.length);
+            
+            for (let i = 0; i < minLength; i++) {
+                const chineseSub = chineseSubtitles[i];
+                const translationSub = translationSubtitles[i];
+                
+                const result = {
+                    id: chineseSub.id,
+                    timecode: chineseSub.timecode,
+                    chineseText: chineseSub.text,
+                    translationText: translationSub.text,
+                    issues: [],
+                    foundTerms: []
+                };
+                
+                // 检查每个术语是否在翻译中正确出现
+                Object.keys(terms).forEach(chineseTerm => {
+                    const englishTerm = terms[chineseTerm];
+                    
+                    // 如果中文文本包含术语
+                    if (chineseSub.text.includes(chineseTerm)) {
+                        // 记录找到的术语
+                        result.foundTerms.push(chineseTerm);
+                        
+                        // 检查翻译文本是否包含对应的英文术语（不区分大小写）
+                        const regex = new RegExp(escapeRegExp(englishTerm), 'i');
+                        if (!regex.test(translationSub.text)) {
+                            result.issues.push({
+                                chineseTerm: chineseTerm,
+                                expectedTranslation: englishTerm,
+                                found: false
+                            });
+                        }
+                    }
+                });
+                
+                results.push(result);
+            }
+            
+            return results;
+        }
+        
+        // 转义正则表达式特殊字符
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        
+        function displayResults(allResults) {
+            const container = document.getElementById('results-container');
+            const resultsSection = document.getElementById('results-section');
+            const totalCount = document.getElementById('total-count');
+            const correctCount = document.getElementById('correct-count');
+            const incorrectCount = document.getElementById('incorrect-count');
+            
+            container.innerHTML = '';
+            
+            let totalItems = 0;
+            let correctItems = 0;
+            let incorrectItems = 0;
+            
+            // 按集数显示结果
+            allResults.forEach(episode => {
+                totalItems += episode.results.length;
+                
+                const episodeSection = document.createElement('div');
+                episodeSection.className = 'episode-section';
+                episodeSection.dataset.episode = episode.fileIndex;
+                
+                const episodeHeader = document.createElement('div');
+                episodeHeader.className = 'episode-header';
+                episodeHeader.innerHTML = `
+                    <span>第${episode.fileIndex}集 - ${episode.fileName}</span>
+                    <button class="episode-toggle">展开</button>
+                `;
+                
+                const episodeContent = document.createElement('div');
+                episodeContent.className = 'episode-content';
+                
+                // 创建表格
+                const table = document.createElement('table');
+                table.className = 'episode-table';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th width="4%">序号</th>
+                            <th width="10%">时间轴</th>
+                            <th width="28%">中文</th>
+                            <th width="28%">翻译后</th>
+                            <th width="8%">对比结果</th>
+                            <th width="22%">出现术语字段</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                `;
+                
+                const tbody = table.querySelector('tbody');
+                
+                episode.results.forEach(result => {
+                    const isCorrect = result.issues.length === 0;
+                    if (isCorrect) {
+                        correctItems++;
+                    } else {
+                        incorrectItems++;
+                    }
+                    
+                    const row = document.createElement('tr');
+                    row.dataset.status = isCorrect ? 'correct' : 'incorrect';
+                    
+                    row.innerHTML = `
+                        <td>${result.id}</td>
+                        <td class="timecode-cell">${result.timecode}</td>
+                        <td class="text-cell">${highlightTerms(result.chineseText, result.issues, 'chinese')}</td>
+                        <td class="text-cell">${highlightTerms(result.translationText, result.issues, 'translation')}</td>
+                        <td class="${isCorrect ? 'result-correct' : 'result-incorrect'}">
+                            ${isCorrect ? '翻译一致' : '翻译不一致'}
+                        </td>
+                        <td>
+                            <div class="terms-list">
+                                ${result.foundTerms.map(term => `<span class="term-tag">${term}</span>`).join('')}
+                            </div>
+                        </td>
+                    `;
+                    
+                    tbody.appendChild(row);
+                });
+                
+                episodeContent.appendChild(table);
+                episodeSection.appendChild(episodeHeader);
+                episodeSection.appendChild(episodeContent);
+                container.appendChild(episodeSection);
+                
+                // 添加折叠功能
+                const toggleBtn = episodeHeader.querySelector('.episode-toggle');
+                toggleBtn.addEventListener('click', function() {
+                    if (episodeContent.style.display === 'none') {
+                        episodeContent.style.display = 'block';
+                        toggleBtn.textContent = '收起';
+                    } else {
+                        episodeContent.style.display = 'none';
+                        toggleBtn.textContent = '展开';
+                    }
+                });
+            });
+            
+            totalCount.textContent = totalItems;
+            correctCount.textContent = correctItems;
+            incorrectCount.textContent = incorrectItems;
+            
+            resultsSection.style.display = 'block';
+            
+            // 添加筛选功能
+            setupFilters();
+        }
+        
+        function highlightTerms(text, issues, type) {
+            let highlightedText = text;
+            
+            if (type === 'chinese') {
+                issues.forEach(issue => {
+                    const regex = new RegExp(escapeRegExp(issue.chineseTerm), 'g');
+                    highlightedText = highlightedText.replace(regex, `<span class="highlight">${issue.chineseTerm}</span>`);
+                });
+            } else if (type === 'translation') {
+                issues.forEach(issue => {
+                    const regex = new RegExp(escapeRegExp(issue.expectedTranslation), 'gi');
+                    highlightedText = highlightedText.replace(regex, `<span class="error-highlight">$&</span>`);
+                });
+            }
+            
+            return highlightedText;
+        }
+        
+        function setupFilters() {
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // 移除所有按钮的active类
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    // 为当前按钮添加active类
+                    this.classList.add('active');
+                    
+                    const filter = this.dataset.filter;
+                    filterResults(filter);
+                });
+            });
+        }
+        
+        function filterResults(filter) {
+            const episodeSections = document.querySelectorAll('.episode-section');
+            
+            episodeSections.forEach(section => {
+                const rows = section.querySelectorAll('tbody tr');
+                let hasVisibleRows = false;
+                
+                rows.forEach(row => {
+                    if (filter === 'all') {
+                        row.style.display = '';
+                        hasVisibleRows = true;
+                    } else if (filter === 'correct' && row.dataset.status === 'correct') {
+                        row.style.display = '';
+                        hasVisibleRows = true;
+                    } else if (filter === 'incorrect' && row.dataset.status === 'incorrect') {
+                        row.style.display = '';
+                        hasVisibleRows = true;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // 如果该集没有可见行，隐藏整个集
+                section.style.display = hasVisibleRows ? 'block' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>
