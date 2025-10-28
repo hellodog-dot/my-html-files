@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多语言行清理与预览工具</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 强制使用 Inter 字体并设置背景 */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        /* 针对 textarea 禁用 resize */
+        textarea {
+            resize: none;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-5xl mx-auto bg-white p-6 sm:p-10 rounded-xl shadow-2xl">
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">多语言行清理工具 (支持泰语、日语、英语)</h1>
+        <p class="text-gray-600 mb-6">粘贴文本或上传文件，选择要移除的语种。本工具将删除所有包含所选语言字符的行。</p>
+
+        <!-- 步骤 1: 语言选择 -->
+        <div class="mb-6 p-4 border border-blue-200 rounded-lg bg-blue-50">
+            <label class="block text-lg font-medium text-gray-700 mb-3">选择要删除的语言行 (可多选):</label>
+            <div class="flex flex-wrap gap-x-8 gap-y-3">
+                
+                <!-- 泰语 -->
+                <div class="flex items-center">
+                    <input id="langThai" type="checkbox" value="thai" checked
+                           class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="langThai" class="ml-2 text-sm font-medium text-gray-900">泰语 (Thai)</label>
+                </div>
+                
+                <!-- 日语 -->
+                <div class="flex items-center">
+                    <input id="langJapanese" type="checkbox" value="japanese"
+                           class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="langJapanese" class="ml-2 text-sm font-medium text-gray-900">日语 (Japanese)</label>
+                </div>
+
+                <!-- 英语/拉丁语 (使用比例检查) -->
+                <div class="flex items-center">
+                    <input id="langEnglish" type="checkbox" value="english"
+                           class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="langEnglish" class="ml-2 text-sm font-medium text-gray-900">英语/拉丁语 (Latin/English)</label>
+                </div>
+            </div>
+            <p class="text-sm text-blue-600 mt-3 font-semibold">
+                🔔 提示：删除英语行现在采用更温和的**比例检查**：只有一行中英文字母占比超过 50% 时才会被删除。
+            </p>
+        </div>
+
+
+        <!-- 步骤 2: 文件上传/粘贴 -->
+        <div class="mb-4 p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+            <label for="fileInput" class="block text-lg font-medium text-gray-700 mb-2">
+                选择文件上传 (推荐 .txt 文件):
+            </label>
+            <input type="file" id="fileInput" accept=".txt, .log, .csv"
+                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+            <p class="text-xs text-gray-500 mt-2">注意：请上传纯文本 (.txt) 或先手动提取文本内容。</p>
+        </div>
+
+        <!-- 粘贴/编辑区域 -->
+        <div class="mb-6">
+            <label for="inputText" class="block text-lg font-medium text-gray-700 mb-2">
+                或粘贴/编辑原文：
+            </label>
+            <textarea id="inputText" rows="10"
+                class="w-full p-4 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm transition duration-150 ease-in-out"
+                placeholder="请将您的文本内容粘贴到此处..."></textarea>
+        </div>
+
+        <!-- 步骤 3: 处理和下载 -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-8">
+            <button id="processButton" onclick="processTextForPreview()"
+                class="flex-1 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-700 transition duration-150 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                <svg class="inline-block w-5 h-5 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                清理并预览结果
+            </button>
+            <button id="downloadButton" onclick="downloadFullText()" disabled
+                class="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-lg transition duration-150 ease-in-out disabled:opacity-50 hover:bg-green-700 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-green-300">
+                <svg class="inline-block w-5 h-5 mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                下载全部结果 (cleaned_text.txt)
+            </button>
+        </div>
+
+        <!-- 步骤 4: 结果预览区域 -->
+        <div id="previewContainer" class="mt-8 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">清理结果预览 (前 100 行)</h2>
+            <div id="statusMessage" class="p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded-lg mb-4 hidden"></div>
+            
+            <pre id="previewText"
+                 class="w-full h-80 p-4 border border-gray-300 bg-gray-50 rounded-lg overflow-auto text-sm text-gray-800 whitespace-pre-wrap"></pre>
+        </div>
+
+        <!-- 提示信息区域 -->
+        <div id="messageBox" class="mt-6 p-3 rounded-lg hidden" role="alert">
+            <p id="messageText"></p>
+        </div>
+    </div>
+
+    <script>
+        let fullCleanedText = ""; 
+        const PREVIEW_LIMIT = 100; 
+        const LATIN_RATIO_THRESHOLD = 0.5; // 针对英语行：超过 50% 的字符是英文字母时才删除
+
+        // 定义各语言的正则表达式片段 (用于存在性检查)
+        const LANGUAGE_REGEX = {
+            // 泰语 Unicode 范围
+            thai: /[\u0E00-\u0E7F]/, 
+            // 日语：包含平假名和片假名
+            japanese: /[\u3040-\u309F\u30A0-\u30FF]/,
+            // 英语/拉丁语：仅用于比例计算，单独定义
+            english_chars: /[a-zA-Z]/g,
+            // 忽略的字符，用于比例计算时排除空格和标点
+            ignore_chars: /[\s\p{P}]/gu // 匹配空格和通用标点符号 (需要注意浏览器对\p{P}的支持)
+        };
+
+        /**
+         * 显示消息框
+         */
+        function showMessage(message, type = 'info') {
+            const box = document.getElementById('messageBox');
+            const text = document.getElementById('messageText');
+            
+            box.className = 'mt-6 p-3 rounded-lg hidden'; 
+            let baseClasses = 'mt-6 p-3 rounded-lg';
+
+            if (type === 'success') {
+                box.className = `${baseClasses} bg-green-100 border border-green-400 text-green-700`;
+            } else if (type === 'error') {
+                box.className = `${baseClasses} bg-red-100 border border-red-400 text-red-700`;
+            } else {
+                box.className = `${baseClasses} bg-blue-100 border border-blue-400 text-blue-700`;
+            }
+
+            text.textContent = message;
+            box.classList.remove('hidden');
+        }
+
+        /**
+         * 获取当前用户选择的过滤器
+         * @returns {string[]} - 选中的语言过滤器数组
+         */
+        function getSelectedFilters() {
+            const filters = [];
+            if (document.getElementById('langThai').checked) {
+                filters.push('thai');
+            }
+            if (document.getElementById('langJapanese').checked) {
+                filters.push('japanese');
+            }
+            if (document.getElementById('langEnglish').checked) {
+                filters.push('english');
+            }
+            return filters;
+        }
+
+        /**
+         * 检查一行文本中英文字母的占比是否超过阈值 (用于删除英语行)
+         * @param {string} line - 要检查的文本行
+         * @returns {boolean} - 如果拉丁字母占比超过阈值则返回 true
+         */
+        function isPredominantlyLatin(line) {
+            // 移除行首尾空格，方便计算
+            const trimmedLine = line.trim();
+            if (trimmedLine.length === 0) return false;
+
+            // 1. 计数英文字母 (a-z, A-Z)
+            const latinMatches = trimmedLine.match(LANGUAGE_REGEX.english_chars);
+            const latinCount = latinMatches ? latinMatches.length : 0;
+
+            // 2. 忽略空格和标点符号，计算有效字符总数
+            // 替换所有空格和通用标点
+            const significantLine = trimmedLine.replace(LANGUAGE_REGEX.ignore_chars, '');
+            const totalSignificantLength = significantLine.length;
+
+            if (totalSignificantLength === 0) return false; // 只有空格或标点
+
+            // 3. 计算比例：英文字母数 / 有效字符总数
+            const ratio = latinCount / totalSignificantLength;
+
+            return ratio >= LATIN_RATIO_THRESHOLD;
+        }
+
+        /**
+         * 判断一行是否应该被删除
+         * @param {string} line - 文本行
+         * @param {string[]} filters - 选中的过滤器
+         * @returns {boolean} - 如果应该删除则返回 true
+         */
+        function shouldDeleteLine(line, filters) {
+            if (line.trim() === '') return false;
+
+            // 1. 泰语和日语：使用简单的存在性检查
+            if (filters.includes('thai') && LANGUAGE_REGEX.thai.test(line)) {
+                return true;
+            }
+            if (filters.includes('japanese') && LANGUAGE_REGEX.japanese.test(line)) {
+                return true;
+            }
+
+            // 2. 英语/拉丁语：使用比例检查
+            if (filters.includes('english') && isPredominantlyLatin(line)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * 处理文本：删除包含被选中语言字符的行
+         * @param {string} inputText - 原始输入文本
+         * @param {string[]} filters - 选中的过滤器
+         * @returns {string} - 清理后的文本
+         */
+        function cleanText(inputText, filters) {
+            if (!inputText || filters.length === 0) return inputText;
+
+            const lines = inputText.split('\n');
+            
+            // 过滤掉应该删除的行
+            const cleanedLines = lines.filter(line => !shouldDeleteLine(line, filters));
+            
+            return cleanedLines.join('\n');
+        }
+
+        /**
+         * 监听文件输入变化，将文件内容加载到文本框
+         */
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const inputTextarea = document.getElementById('inputText');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    inputTextarea.value = e.target.result;
+                    showMessage(`文件 "${file.name}" 已加载到文本编辑区。`, 'info');
+                };
+                reader.onerror = function() {
+                    showMessage("读取文件时发生错误。", 'error');
+                };
+                reader.readAsText(file, 'UTF-8');
+                event.target.value = '';
+            }
+        });
+
+        /**
+         * 清理文本并显示预览结果
+         */
+        function processTextForPreview() {
+            const inputTextarea = document.getElementById('inputText');
+            const inputText = inputTextarea.value;
+            const previewContainer = document.getElementById('previewContainer');
+            const previewText = document.getElementById('previewText');
+            const downloadButton = document.getElementById('downloadButton');
+            const statusMessage = document.getElementById('statusMessage');
+            
+            const filters = getSelectedFilters();
+
+            // 隐藏上一次的预览结果和消息
+            previewContainer.classList.add('hidden');
+            downloadButton.disabled = true;
+            statusMessage.classList.add('hidden');
+
+            if (filters.length === 0) {
+                showMessage("请至少选择一个要删除的语言。", 'error');
+                return;
+            }
+
+            if (inputText.trim() === "") {
+                showMessage("请输入文本内容或上传文件。", 'error');
+                return;
+            }
+
+            try {
+                // 2. 清理文本
+                fullCleanedText = cleanText(inputText, filters);
+                
+                // 3. 统计信息
+                const originalLines = inputText.split('\n');
+                const cleanedLines = fullCleanedText.split('\n');
+                const originalLineCount = originalLines.length;
+                const cleanedLineCount = cleanedLines.length;
+                const removedCount = originalLineCount - cleanedLineCount;
+
+                // 4. 生成预览内容
+                const previewLines = fullCleanedText.split('\n').slice(0, PREVIEW_LIMIT);
+                const previewContent = previewLines.join('\n');
+                
+                previewText.textContent = previewContent;
+
+                // 5. 显示预览和状态
+                previewContainer.classList.remove('hidden');
+                downloadButton.disabled = false;
+                
+                statusMessage.textContent = `清理成功！已删除 ${removedCount} 行。总行数：${cleanedLineCount} 行。下方是前 ${PREVIEW_LIMIT} 行预览。`;
+                statusMessage.classList.remove('hidden');
+                statusMessage.className = 'p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded-lg mb-4';
+
+                showMessage("文本清理和预览已完成。请检查预览结果。", 'success');
+
+            } catch (error) {
+                console.error("处理过程中发生错误:", error);
+                showMessage("处理过程中发生错误，请检查控制台了解详情。", 'error');
+            }
+        }
+
+        /**
+         * 触发浏览器下载完整的清理后文本文件
+         */
+        function downloadFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            
+            document.body.appendChild(a);
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadFullText() {
+            if (!fullCleanedText) {
+                showMessage("没有可下载的内容，请先清理文本。", 'error');
+                return;
+            }
+            downloadFile(fullCleanedText, 'cleaned_text.txt');
+            showMessage("完整清理后的文件已开始下载。", 'success');
+        }
+
+        // 页面加载时填充示例内容
+        window.onload = function() {
+            document.getElementById('inputText').value = `本集人物：齐等闲、玉小龙、龙亚男、Apple Pencil、贪狼
+ตัวละคร: กชมน  มิว  มิริน เคราใหญ่  หมาป่าใหญ่  พระเจ้าเสือ  พระเจ้างู  มนพัทธ์  (泰语行)
+地点：幽都监狱废弃仓库、幽都监狱外空地。 网站是 https://www.google.com
+場所：幽都刑務所の廃墟となった倉庫 (日语行)
+情节大纲：监狱暴动，齐等闲前来镇压。玉小龙押送恐怖犯人至此。
+Plot Summary: The quick brown fox jumps over the lazy dog. (纯英语行，会被删除)
+【字幕：幽都监狱】
+【คำบรรยาย：เรือนจำจังหวัดนราธิวาส】 (泰语行)
+中文行：我们购买了新的 M3 芯片笔记本电脑。`;
+            showMessage("已加载示例内容。请选择要删除的语言，然后点击 '清理并预览结果'。", 'info');
+        }
+    </script>
+</body>
+</html>
