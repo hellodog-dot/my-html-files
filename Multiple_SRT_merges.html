@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRT文件多任务合并工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet"> 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#69b1ff',
+                        neutral: '#f5f7fa',
+                        dark: '#1d2129',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .shadow-soft {
+                box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+            }
+            .transition-all-300 {
+                transition: all 0.3s ease;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter text-dark min-h-screen flex flex-col">
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-file-text text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-primary">SRT文件多任务合并工具</h1>
+            </div>
+            <div class="hidden md:flex items-center space-x-6">
+                <a href="#" class="text-gray-600 hover:text-primary transition-all-300">
+                    <i class="fa-solid fa-question-circle mr-1"></i>帮助
+                </a>
+                <a href="#" class="text-gray-600 hover:text-primary transition-all-300">
+                    <i class="fa-solid fa-github mr-1"></i>源码
+                </a>
+            </div>
+            <button class="md:hidden text-gray-600 hover:text-primary transition-all-300">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-soft p-6 md:p-8 mb-8">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold mb-4 flex items-center">
+                    <i class="fa-solid fa-layer-group text-primary mr-2"></i>任务上传与设置
+                </h2>
+
+                <div id="tasks-container" class="space-y-6">
+                    </div>
+
+                <div class="mt-6 text-center">
+                    <button id="add-task-btn" class="bg-secondary hover:bg-secondary/90 text-white px-6 py-2 rounded-lg transition-all-300 shadow-md hover:shadow-lg">
+                        <i class="fa-solid fa-plus-circle mr-1"></i>新增一个合并任务
+                    </button>
+                    <p class="text-gray-500 text-sm mt-2">最多可创建 12 个任务</p>
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold mb-4 flex items-center">
+                    <i class="fa-solid fa-sliders text-primary mr-2"></i>输出设置
+                </h2>
+                <div class="space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center gap-4">
+                        <label class="font-medium text-gray-700 w-full md:w-1/3">输出格式</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="output-format" value="full" class="form-radio h-5 w-5 text-primary" checked>
+                                <span class="ml-2">带时间轴 (.txt)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="output-format" value="text" class="form-radio h-5 w-5 text-primary">
+                                <span class="ml-2">纯文本 (.txt)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-4 justify-center">
+                <button id="merge-btn" class="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-lg transition-all-300 shadow-md hover:shadow-lg flex items-center">
+                    <i class="fa-solid fa-play-circle mr-2"></i>开始所有任务合并
+                </button>
+                <button id="clear-all-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-8 py-3 rounded-lg transition-all-300 shadow-md hover:shadow-lg flex items-center">
+                    <i class="fa-solid fa-trash-alt mr-2"></i>清空所有任务
+                </button>
+            </div>
+        </div>
+
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-soft p-6 md:p-8">
+            <h2 class="text-2xl font-bold mb-4 flex items-center">
+                <i class="fa-solid fa-cloud-download-alt text-primary mr-2"></i>合并结果与下载
+            </h2>
+            
+            <div id="results-tabs" class="flex flex-wrap gap-2 mb-4 border-b border-gray-200">
+                </div>
+
+            <div id="preview-container" class="min-h-[200px] border border-gray-200 rounded-lg p-4 bg-neutral overflow-auto max-h-[400px]">
+                <div class="text-gray-500 text-center py-12">
+                    选择上方任务标签以预览结果
+                </div>
+            </div>
+            
+            <div class="mt-4 text-right">
+                <button id="download-all-btn" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg transition-all-300 shadow-md hover:shadow-lg hidden" disabled>
+                    <i class="fa-solid fa-file-archive mr-1"></i>打包下载所有结果 (.zip)
+                </button>
+                <p id="download-tip" class="text-sm text-gray-500 mt-2 hidden">请先合并成功后再下载</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-dark text-white py-6">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <i class="fa-solid fa-file-text text-primary text-xl"></i>
+                        <span class="font-bold text-lg">SRT文件合并工具</span>
+                    </div>
+                    <p class="text-gray-400 text-sm">高效合并多个SRT字幕文件</p>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="#" class="text-gray-400 hover:text-white transition-all-300">
+                        <i class="fa-solid fa-question-circle"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-all-300">
+                        <i class="fa-solid fa-github"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-all-300">
+                        <i class="fa-solid fa-envelope"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 mt-6 pt-6 text-center text-gray-500 text-sm">
+                &copy; 2025 SRT文件合并工具 | 保护隐私，所有操作在本地完成
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script>
+        // 核心数据结构：存储所有任务
+        let taskGroups = []; // [{ id: 1, name: '上传1', files: [File], mergedContent: '', status: 'pending' }, ...]
+        let currentTaskId = 0;
+        // **修改了任务上限为 12**
+        const MAX_TASKS = 12; 
+        const episodeRegex = /(\d+)\.srt/i; 
+
+        // DOM元素
+        const tasksContainer = document.getElementById('tasks-container');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const mergeBtn = document.getElementById('merge-btn');
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const resultsTabs = document.getElementById('results-tabs');
+        const previewContainer = document.getElementById('preview-container');
+        const downloadAllBtn = document.getElementById('download-all-btn');
+        const downloadTip = document.getElementById('download-tip');
+        
+        // --- 1. 任务管理 ---
+
+        /**
+         * 动态创建任务组的HTML结构
+         * @param {number} taskId - 任务ID
+         * @param {string} taskName - 默认任务名称
+         */
+        function createTaskHtml(taskId, taskName) {
+            return `
+                <div class="task-group border border-gray-300 rounded-xl p-4 bg-white shadow-md" data-task-id="${taskId}">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-xl font-semibold text-dark flex items-center">
+                            <i class="fa-solid fa-tasks text-secondary mr-2"></i>任务 ${taskId}
+                        </h3>
+                        <button class="remove-task-btn text-gray-400 hover:text-red-500 transition-all-300 p-1" data-task-id="${taskId}">
+                            <i class="fa-solid fa-times-circle text-xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="flex flex-col md:flex-row md:items-center gap-2">
+                            <label for="task-name-${taskId}" class="font-medium text-gray-700 w-full md:w-1/4 flex-shrink-0">合并文件名 (.txt)</label>
+                            <input type="text" id="task-name-${taskId}" value="${taskName}" class="task-name-input w-full p-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition-all-300" placeholder="例如：我的剧集-韩语字幕" data-task-id="${taskId}">
+                        </div>
+
+                        <div class="drop-area border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-all-300 cursor-pointer bg-neutral relative" data-task-id="${taskId}">
+                             <input type="file" id="file-input-${taskId}" multiple accept=".srt" class="task-file-input absolute inset-0 opacity-0 cursor-pointer" data-task-id="${taskId}">
+                            
+                            <i class="fa-solid fa-file-import text-3xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-600 text-sm">拖拽SRT文件到此处，或</p>
+                            <button class="select-files-btn bg-primary hover:bg-primary/90 text-white px-4 py-1 mt-2 text-sm rounded-lg transition-all-300 shadow-md" data-task-id="${taskId}">
+                                <i class="fa-solid fa-plus mr-1"></i>选择文件
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 border-t border-gray-200 pt-4">
+                        <p class="font-medium text-gray-700 mb-2">文件列表：</p>
+                        <div id="task-file-list-${taskId}" class="file-list-display space-y-2 max-h-32 overflow-y-auto pr-2 text-sm">
+                            <div class="text-gray-500 text-center">未选择文件</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * 添加一个新的任务组到DOM和数据结构
+         */
+        function addNewTask() {
+            if (taskGroups.length >= MAX_TASKS) {
+                showToast(`最多只能添加 ${MAX_TASKS} 个合并任务`, 'warning');
+                return;
+            }
+
+            currentTaskId++;
+            const taskName = `上传${currentTaskId}`;
+            const taskHtml = createTaskHtml(currentTaskId, taskName);
+            
+            tasksContainer.insertAdjacentHTML('beforeend', taskHtml);
+
+            taskGroups.push({
+                id: currentTaskId,
+                name: taskName,
+                files: [],
+                mergedContent: null,
+                status: 'pending' // pending, success, error
+            });
+            
+            // 绑定新的事件
+            bindTaskEvents(currentTaskId);
+            updateDownloadBtnState();
+            showToast(`已新增任务 ${currentTaskId}`, 'info');
+        }
+
+        /**
+         * 绑定单个任务组的事件
+         * @param {number} taskId 
+         */
+        function bindTaskEvents(taskId) {
+            const taskGroup = tasksContainer.querySelector(`[data-task-id="${taskId}"]`);
+            if (!taskGroup) return;
+
+            const fileInput = document.getElementById(`file-input-${taskId}`);
+            const selectBtn = taskGroup.querySelector('.select-files-btn');
+            const removeBtn = taskGroup.querySelector('.remove-task-btn');
+            const nameInput = document.getElementById(`task-name-${taskId}`);
+            const dropArea = taskGroup.querySelector('.drop-area');
+
+            // 移除任务
+            removeBtn.addEventListener('click', () => removeTask(taskId));
+
+            // 文件名修改
+            nameInput.addEventListener('input', (e) => updateTaskName(taskId, e.target.value));
+
+            // 选择文件按钮
+            selectBtn.addEventListener('click', () => fileInput.click());
+
+            // 文件选择输入框
+            fileInput.addEventListener('change', (e) => handleFiles(taskId, e.target.files));
+
+            // 拖放事件
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.add('border-primary', 'bg-primary/5'), false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.remove('border-primary', 'bg-primary/5'), false);
+            });
+            dropArea.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                handleFiles(taskId, dt.files);
+            }, false);
+        }
+
+        /**
+         * 更新任务名称
+         * @param {number} taskId 
+         * @param {string} newName 
+         */
+        function updateTaskName(taskId, newName) {
+            const task = taskGroups.find(t => t.id === taskId);
+            if (task) {
+                task.name = newName.trim() || `上传${taskId}`;
+            }
+            // 结果标签也需要更新名称
+            const tab = resultsTabs.querySelector(`[data-task-id="${taskId}"]`);
+            if (tab) {
+                tab.textContent = task.name;
+            }
+        }
+
+        /**
+         * 移除任务
+         * @param {number} taskId 
+         */
+        function removeTask(taskId) {
+            taskGroups = taskGroups.filter(t => t.id !== taskId);
+            
+            // 移除DOM元素
+            const taskGroup = tasksContainer.querySelector(`[data-task-id="${taskId}"]`);
+            if (taskGroup) taskGroup.remove();
+            
+            // 移除结果标签页
+            const tab = resultsTabs.querySelector(`[data-task-id="${taskId}"]`);
+            if (tab) tab.remove();
+            
+            // 如果移除的是当前预览的，清空预览区
+            if (previewContainer.dataset.currentTask === String(taskId)) {
+                clearPreview();
+            }
+
+            updateDownloadBtnState();
+            showToast(`任务 ${taskId} 已移除`, 'info');
+        }
+
+        /**
+         * 处理文件上传
+         * @param {number} taskId 
+         * @param {FileList} files 
+         */
+        function handleFiles(taskId, files) {
+            const task = taskGroups.find(t => t.id === taskId);
+            if (!task) return;
+
+            const newFiles = Array.from(files).filter(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                return ext === 'srt';
+            });
+
+            if (newFiles.length === 0) {
+                showToast('请选择有效的SRT文件', 'error');
+                return;
+            }
+            
+            // 去重，只添加新文件
+            const uniqueFiles = newFiles.filter(newFile => {
+                return !task.files.some(existingFile => existingFile.name === newFile.name);
+            });
+
+            if (uniqueFiles.length === 0 && newFiles.length > 0) {
+                 showToast('所选文件已在任务列表中', 'info');
+                 return;
+            }
+
+            task.files = [...task.files, ...uniqueFiles];
+            // 重置合并状态
+            task.mergedContent = null;
+            task.status = 'pending';
+            
+            updateTaskFileList(taskId);
+            updateDownloadBtnState();
+            showToast(`任务 ${taskId} 已添加 ${uniqueFiles.length} 个文件`, 'success');
+        }
+
+        /**
+         * 更新单个任务的文件列表显示
+         * @param {number} taskId 
+         */
+        function updateTaskFileList(taskId) {
+            const task = taskGroups.find(t => t.id === taskId);
+            if (!task) return;
+
+            const fileListDisplay = document.getElementById(`task-file-list-${taskId}`);
+            if (!fileListDisplay) return;
+
+            if (task.files.length === 0) {
+                fileListDisplay.innerHTML = `<div class="text-gray-500 text-center">未选择文件</div>`;
+                return;
+            }
+
+            // 排序
+            task.files.sort((a, b) => {
+                return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            fileListDisplay.innerHTML = '';
+            task.files.forEach((file, index) => {
+                const episodeNum = extractEpisodeNumber(file.name);
+                const fileItem = document.createElement('div');
+                fileItem.className = 'flex items-center justify-between p-1 bg-gray-50 rounded';
+                fileItem.innerHTML = `
+                    <div class="flex items-center min-w-0">
+                        <i class="fa-solid fa-file-text text-secondary mr-2 flex-shrink-0"></i>
+                        <span class="truncate text-gray-700">${file.name}</span>
+                    </div>
+                    <div class="flex-shrink-0 ml-2 text-xs text-gray-500 space-x-2">
+                         ${episodeNum ? `<span>第${episodeNum}集</span>` : ''}
+                        <button class="remove-file-from-task-btn text-gray-400 hover:text-red-500" data-task-id="${taskId}" data-file-index="${index}">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                fileListDisplay.appendChild(fileItem);
+            });
+            
+            // 绑定文件移除事件
+            fileListDisplay.querySelectorAll('.remove-file-from-task-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const fileIndex = parseInt(e.currentTarget.dataset.fileIndex);
+                    removeFileFromTask(taskId, fileIndex);
+                });
+            });
+        }
+
+        /**
+         * 从单个任务中移除文件
+         * @param {number} taskId 
+         * @param {number} fileIndex 
+         */
+        function removeFileFromTask(taskId, fileIndex) {
+             const task = taskGroups.find(t => t.id === taskId);
+             if (task && fileIndex >= 0 && fileIndex < task.files.length) {
+                 task.files.splice(fileIndex, 1);
+                 // 重置合并状态
+                 task.mergedContent = null;
+                 task.status = 'pending';
+                 updateTaskFileList(taskId);
+                 updateDownloadBtnState();
+                 if (previewContainer.dataset.currentTask === String(taskId)) {
+                    clearPreview();
+                 }
+                 showToast('文件已移除', 'info');
+             }
+        }
+
+        /**
+         * 更新下载按钮状态和结果标签
+         */
+        function updateDownloadBtnState() {
+            const hasMergedSuccess = taskGroups.some(t => t.status === 'success');
+            
+            if (hasMergedSuccess) {
+                downloadAllBtn.classList.remove('hidden');
+                downloadAllBtn.removeAttribute('disabled');
+                downloadTip.classList.add('hidden');
+            } else {
+                downloadAllBtn.classList.add('hidden');
+                downloadAllBtn.setAttribute('disabled', 'true');
+                downloadTip.classList.remove('hidden');
+            }
+            
+            // 更新结果标签页
+            resultsTabs.innerHTML = '';
+            taskGroups.forEach(task => {
+                if (task.status === 'success') {
+                    const tab = document.createElement('button');
+                    tab.className = 'tab-button p-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-primary hover:border-primary transition-colors';
+                    tab.setAttribute('data-task-id', task.id);
+                    tab.textContent = task.name;
+                    tab.addEventListener('click', () => showMergedResult(task.id));
+                    resultsTabs.appendChild(tab);
+                }
+            });
+        }
+
+        /**
+         * 清空预览区域
+         */
+        function clearPreview() {
+            previewContainer.innerHTML = `<div class="text-gray-500 text-center py-12">选择上方任务标签以预览结果</div>`;
+            previewContainer.removeAttribute('data-current-task');
+            // 取消激活所有标签
+            resultsTabs.querySelectorAll('.tab-button').forEach(tab => {
+                tab.classList.remove('text-primary', 'border-primary', 'bg-neutral');
+                tab.classList.add('text-gray-500', 'border-transparent');
+            });
+        }
+
+        // --- 2. 合并逻辑 ---
+
+        /**
+         * 开始所有任务的合并
+         */
+        mergeBtn.addEventListener('click', async () => {
+            if (taskGroups.length === 0) {
+                showToast('请先添加并选择SRT文件', 'error');
+                return;
+            }
+
+            const activeTasks = taskGroups.filter(t => t.files.length > 0);
+            if (activeTasks.length === 0) {
+                 showToast('没有包含文件的任务需要合并', 'error');
+                 return;
+            }
+
+            showToast(`开始合并 ${activeTasks.length} 个任务...`, 'info');
+            clearPreview(); // 清空上次的预览
+
+            const outputFormat = document.querySelector('input[name="output-format"]:checked').value;
+            let successCount = 0;
+            let failureCount = 0;
+            
+            for (const task of taskGroups) {
+                if (task.files.length === 0) continue;
+
+                try {
+                    task.mergedContent = await mergeSingleTask(task.files, outputFormat);
+                    task.status = 'success';
+                    successCount++;
+                    // 自动选择第一个成功的任务进行预览
+                    if (successCount === 1) {
+                        showMergedResult(task.id);
+                    }
+                } catch (error) {
+                    task.mergedContent = `合并失败: ${error.message}`;
+                    task.status = 'error';
+                    failureCount++;
+                    console.error(`任务 ${task.id} 合并失败:`, error);
+                }
+            }
+
+            updateDownloadBtnState();
+            showToast(`所有任务合并完成。成功 ${successCount} 个，失败 ${failureCount} 个。`, 'success');
+        });
+
+        /**
+         * 合并单个任务中的SRT文件
+         */
+        async function mergeSingleTask(files, outputFormat) {
+            let mergedContent = '';
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const episodeNum = extractEpisodeNumber(file.name) || (i + 1);
+                
+                mergedContent += `\n\n--- 第${episodeNum}集 ---\n\n`;
+                
+                const content = await readFileAsync(file);
+                
+                if (outputFormat === 'full') {
+                    mergedContent += content.trim();
+                } else {
+                    const textOnly = extractTextFromSrt(content);
+                    mergedContent += textOnly;
+                }
+            }
+            
+            return mergedContent.trim();
+        }
+
+        /**
+         * 预览合并结果
+         * @param {number} taskId 
+         */
+        function showMergedResult(taskId) {
+            const task = taskGroups.find(t => t.id === taskId);
+            if (!task || task.status !== 'success' || !task.mergedContent) {
+                clearPreview();
+                return;
+            }
+            
+            // 取消激活所有标签
+            resultsTabs.querySelectorAll('.tab-button').forEach(tab => {
+                tab.classList.remove('text-primary', 'border-primary', 'bg-neutral');
+                tab.classList.add('text-gray-500', 'border-transparent');
+            });
+
+            // 激活当前标签
+            const activeTab = resultsTabs.querySelector(`[data-task-id="${taskId}"]`);
+            if (activeTab) {
+                activeTab.classList.add('text-primary', 'border-primary', 'bg-neutral');
+                activeTab.classList.remove('text-gray-500', 'border-transparent');
+            }
+            
+            // 更新预览内容
+            previewContainer.innerHTML = `<pre class="font-mono text-sm whitespace-pre-wrap">${task.mergedContent}</pre>`;
+            previewContainer.setAttribute('data-current-task', taskId);
+        }
+
+        // --- 3. 下载逻辑 ---
+
+        /**
+         * 打包下载所有成功的合并结果
+         */
+        downloadAllBtn.addEventListener('click', async () => {
+            const successfulTasks = taskGroups.filter(t => t.status === 'success' && t.mergedContent);
+            
+            if (successfulTasks.length === 0) {
+                showToast('没有成功的合并结果可供下载', 'error');
+                return;
+            }
+
+            showToast(`正在打包 ${successfulTasks.length} 个文件，请稍候...`, 'info');
+            
+            const zip = new JSZip();
+            successfulTasks.forEach(task => {
+                // 使用用户自定义的文件名作为下载文件名，后缀固定为.txt
+                const safeName = task.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s\-_]/g, '').trim();
+                const filename = `${safeName}.txt`;
+                zip.file(filename, task.mergedContent);
+            });
+            
+            // 生成ZIP文件
+            const content = await zip.generateAsync({ type: 'blob' });
+
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = `SRT合并结果_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast('所有合并结果已打包下载', 'success');
+        });
+
+        // --- 4. 通用辅助函数 ---
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        function extractEpisodeNumber(filename) {
+            let match;
+            episodeRegex.lastIndex = 0;
+            
+            while ((match = episodeRegex.exec(filename)) !== null) {
+                for (let i = 1; i < match.length; i++) {
+                    if (match[i] !== undefined) {
+                        return parseInt(match[i]);
+                    }
+                }
+            }
+            return null;
+        }
+
+        function readFileAsync(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => resolve(event.target.result);
+                reader.onerror = (error) => reject(error);
+                reader.readAsText(file);
+            });
+        }
+        
+        function extractTextFromSrt(srtContent) {
+            const blocks = srtContent.split(/\r?\n\r?\n/).filter(block => block.trim() !== '');
+            let textContent = '';
+            
+            blocks.forEach(block => {
+                const lines = block.split(/\r?\n/);
+                // 排除序号和时间轴行
+                if (lines.length >= 3) {
+                    const textLines = lines.slice(2);
+                    textContent += textLines.join(' ') + '\n';
+                }
+            });
+            return textContent.trim();
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            let bgColor, textColor, icon;
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-500'; textColor = 'text-white'; icon = 'fa-check-circle'; break;
+                case 'error':
+                    bgColor = 'bg-red-500'; textColor = 'text-white'; icon = 'fa-exclamation-circle'; break;
+                case 'warning':
+                    bgColor = 'bg-yellow-500'; textColor = 'text-white'; icon = 'fa-exclamation-triangle'; break;
+                case 'info':
+                default:
+                    bgColor = 'bg-primary'; textColor = 'text-white'; icon = 'fa-info-circle'; break;
+            }
+            
+            toast.className = `${bgColor} ${textColor} px-4 py-3 rounded-lg shadow-lg flex items-center fixed bottom-4 right-4 z-50 transform transition-all duration-300 ease-in-out translate-y-10 opacity-0`;
+            toast.innerHTML = `<i class="fa-solid ${icon} mr-2"></i><span>${message}</span>`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => { toast.classList.remove('translate-y-10', 'opacity-0'); }, 10);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => { document.body.removeChild(toast); }, 300);
+            }, 3000);
+        }
+        
+        // --- 初始化 ---
+        
+        addTaskBtn.addEventListener('click', addNewTask);
+        clearAllBtn.addEventListener('click', () => {
+            taskGroups = [];
+            currentTaskId = 0;
+            tasksContainer.innerHTML = '';
+            resultsTabs.innerHTML = '';
+            clearPreview();
+            updateDownloadBtnState();
+            showToast('已清空所有任务', 'info');
+        });
+        
+        // 初始添加一个任务
+        addNewTask(); 
+    </script>
+</body>
+</html>
