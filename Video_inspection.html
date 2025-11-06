@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频集数识别与时长校验工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .upload-section {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #444;
+        }
+        .file-input {
+            margin-bottom: 15px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .results {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .match {
+            color: green;
+        }
+        .mismatch {
+            color: red;
+        }
+        .progress-container {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <h1>视频集数识别与时长校验工具</h1>
+    
+    <div class="upload-section">
+        <div class="section-title">有字幕视频（仅限 .mp4, .mov）</div>
+        <div class="file-input">
+            <input type="file" id="originalFiles" multiple accept=".mp4,.mov" webkitdirectory directory>
+            <label for="originalFiles">选择有字幕文件夹</label>
+        </div>
+        <div>已选择文件: <span id="originalFileCount">0</span></div>
+    </div>
+    
+    <div class="upload-section">
+        <div class="section-title">无字幕视频（仅限 .mp4, .mov）</div>
+        <div class="file-input">
+            <input type="file" id="watermarkFiles" multiple accept=".mp4,.mov" webkitdirectory directory>
+            <label for="watermarkFiles">选择无字幕文件夹</label>
+        </div>
+        <div>已选择文件: <span id="watermarkFileCount">0</span></div>
+    </div>
+    
+    <div>
+        <button id="processBtn">处理视频</button>
+        <div class="progress-container" id="progressContainer" style="display: none;">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+    
+    <div class="results" id="results" style="display: none;">
+        <h2>处理结果</h2>
+        <div>
+            <p>有字幕总集数: <span id="originalCount">0</span></p>
+            <p>无字幕总集数: <span id="watermarkCount">0</span></p>
+            <p>集数匹配: <span id="countMatch"></span></p>
+        </div>
+        <div>
+            <p>有字幕总时长: <span id="originalDuration">00:00:00</span></p>
+            <p>无字幕总时长: <span id="watermarkDuration">00:00:00</span></p>
+            <p>时长匹配: <span id="durationMatch"></span></p>
+        </div>
+        
+        <h3>详细对比</h3>
+        <table id="comparisonTable">
+            <thead>
+                <tr>
+                    <th>集数</th>
+                    <th>有字幕文件名</th>
+                    <th>有字幕格式</th> <th>有字幕时长</th>
+                    <th>无字幕文件名</th>
+                    <th>无字幕格式</th> <th>无字幕时长</th>
+                    <th>时长匹配</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        // 存储视频信息
+        let originalVideos = [];
+        let watermarkVideos = [];
+
+        /**
+         * 过滤文件列表，只保留 .mp4 和 .mov 文件
+         * @param {FileList} fileList 
+         * @returns {File[]} 过滤后的文件数组
+         */
+        function filterVideoFiles(fileList) {
+            const allowedExtensions = ['.mp4', '.mov'];
+            return Array.from(fileList).filter(file => {
+                const extension = file.name.slice((Math.max(0, file.name.lastIndexOf(".")) || Infinity) + 1).toLowerCase();
+                return allowedExtensions.includes('.' + extension);
+            });
+        }
+        
+        // 监听文件选择
+        document.getElementById('originalFiles').addEventListener('change', function(e) {
+            // 使用过滤器
+            originalVideos = filterVideoFiles(e.target.files);
+            document.getElementById('originalFileCount').textContent = originalVideos.length;
+        });
+        
+        document.getElementById('watermarkFiles').addEventListener('change', function(e) {
+            // 使用过滤器
+            watermarkVideos = filterVideoFiles(e.target.files);
+            document.getElementById('watermarkFileCount').textContent = watermarkVideos.length;
+        });
+        
+        // 处理按钮点击
+        document.getElementById('processBtn').addEventListener('click', async function() {
+            if (originalVideos.length === 0 && watermarkVideos.length === 0) {
+                alert('请至少上传一组视频文件');
+                return;
+            }
+            
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            
+            // 处理有字幕视频
+            let originalProcessed = [];
+            if (originalVideos.length > 0) {
+                const total = originalVideos.length;
+                for (let i = 0; i < originalVideos.length; i++) {
+                    const video = originalVideos[i];
+                    // 获取时长和格式
+                    const { duration, format } = await getVideoInfo(video);
+                    originalProcessed.push({
+                        name: video.name,
+                        duration: duration,
+                        format: format // 存储格式
+                    });
+                    
+                    // 更新进度条 (0% - 50%)
+                    const progress = ((i + 1) / total) * 50;
+                    progressBar.style.width = `${progress}%`;
+                }
+            }
+            
+            // 处理无字幕视频
+            let watermarkProcessed = [];
+            if (watermarkVideos.length > 0) {
+                const total = watermarkVideos.length;
+                for (let i = 0; i < watermarkVideos.length; i++) {
+                    const video = watermarkVideos[i];
+                    // 获取时长和格式
+                    const { duration, format } = await getVideoInfo(video);
+                    watermarkProcessed.push({
+                        name: video.name,
+                        duration: duration,
+                        format: format // 存储格式
+                    });
+                    
+                    // 更新进度条 (50% - 100%)
+                    const progress = 50 + ((i + 1) / total) * 50;
+                    progressBar.style.width = `${progress}%`;
+                }
+            }
+            
+            // 处理完成
+            progressBar.style.width = '100%';
+            progressContainer.style.display = 'none'; // 隐藏进度条
+            displayResults(originalProcessed, watermarkProcessed);
+        });
+        
+        /**
+         * 获取视频时长和格式
+         * @param {File} file 
+         * @returns {Promise<{duration: number, format: string}>} 视频信息
+         */
+        function getVideoInfo(file) {
+            return new Promise((resolve) => {
+                const video = document.createElement('video');
+                video.preload = 'metadata';
+                
+                // 获取文件扩展名作为格式
+                const format = file.name.split('.').pop().toUpperCase();
+                
+                video.onloadedmetadata = function() {
+                    window.URL.revokeObjectURL(video.src);
+                    resolve({ duration: video.duration, format: format });
+                };
+                
+                video.onerror = function() {
+                    window.URL.revokeObjectURL(video.src);
+                    resolve({ duration: 0, format: format + ' (读取失败)' }); // 如果无法获取时长，返回0，并标记读取失败
+                };
+                
+                video.src = URL.createObjectURL(file);
+            });
+        }
+        
+        // 显示结果
+        function displayResults(originalVideos, watermarkVideos) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            
+            // 显示总集数
+            document.getElementById('originalCount').textContent = originalVideos.length;
+            document.getElementById('watermarkCount').textContent = watermarkVideos.length;
+            
+            // 检查集数是否匹配
+            const countMatch = originalVideos.length === watermarkVideos.length;
+            const countMatchSpan = document.getElementById('countMatch');
+            countMatchSpan.textContent = countMatch ? '匹配' : '不匹配';
+            countMatchSpan.className = countMatch ? 'match' : 'mismatch';
+            
+            // 计算总时长
+            const originalTotalDuration = originalVideos.reduce((sum, video) => sum + video.duration, 0);
+            const watermarkTotalDuration = watermarkVideos.reduce((sum, video) => sum + video.duration, 0);
+            
+            // 显示总时长
+            document.getElementById('originalDuration').textContent = formatDuration(originalTotalDuration);
+            document.getElementById('watermarkDuration').textContent = formatDuration(watermarkTotalDuration);
+            
+            // 检查时长是否匹配 (允许1秒误差)
+            const durationMatch = Math.abs(originalTotalDuration - watermarkTotalDuration) < 1;
+            const durationMatchSpan = document.getElementById('durationMatch');
+            durationMatchSpan.textContent = durationMatch ? '匹配' : '不匹配';
+            durationMatchSpan.className = durationMatch ? 'match' : 'mismatch';
+            
+            // 填充对比表格
+            const tableBody = document.querySelector('#comparisonTable tbody');
+            tableBody.innerHTML = '';
+            
+            const maxLength = Math.max(originalVideos.length, watermarkVideos.length);
+            for (let i = 0; i < maxLength; i++) {
+                // 如果文件数量不一致，缺失的一方用默认值填充
+                const original = originalVideos[i] || { name: '无', duration: 0, format: '-' };
+                const watermark = watermarkVideos[i] || { name: '无', duration: 0, format: '-' };
+                
+                const row = document.createElement('tr');
+                
+                // 集数
+                const episodeCell = document.createElement('td');
+                episodeCell.textContent = i + 1;
+                row.appendChild(episodeCell);
+                
+                // 有字幕信息
+                const originalNameCell = document.createElement('td');
+                originalNameCell.textContent = original.name;
+                row.appendChild(originalNameCell);
+                
+                const originalFormatCell = document.createElement('td'); // 有字幕格式
+                originalFormatCell.textContent = original.format;
+                row.appendChild(originalFormatCell);
+                
+                const originalDurationCell = document.createElement('td');
+                originalDurationCell.textContent = formatDuration(original.duration);
+                row.appendChild(originalDurationCell);
+                
+                // 无字幕信息
+                const watermarkNameCell = document.createElement('td');
+                watermarkNameCell.textContent = watermark.name;
+                row.appendChild(watermarkNameCell);
+
+                const watermarkFormatCell = document.createElement('td'); // 无字幕格式
+                watermarkFormatCell.textContent = watermark.format;
+                row.appendChild(watermarkFormatCell);
+                
+                const watermarkDurationCell = document.createElement('td');
+                watermarkDurationCell.textContent = formatDuration(watermark.duration);
+                row.appendChild(watermarkDurationCell);
+                
+                // 时长匹配
+                const matchCell = document.createElement('td');
+                const durationDiff = Math.abs(original.duration - watermark.duration);
+                // 仅当两个文件都存在时才检查时长，否则显示不匹配（因为集数不一致）
+                const isMatch = (original.name !== '无' && watermark.name !== '无') && (durationDiff < 1); 
+                matchCell.textContent = isMatch ? '匹配' : '不匹配';
+                matchCell.className = isMatch ? 'match' : 'mismatch';
+                row.appendChild(matchCell);
+                
+                tableBody.appendChild(row);
+            }
+        }
+        
+        // 格式化时长 (秒 -> HH:MM:SS)
+        function formatDuration(seconds) {
+            if (isNaN(seconds) || seconds < 0) return '00:00:00';
+            
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            return [
+                hours.toString().padStart(2, '0'),
+                minutes.toString().padStart(2, '0'),
+                secs.toString().padStart(2, '0')
+            ].join(':');
+        }
+    </script>
+</body>
+</html>
