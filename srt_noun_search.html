@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRT字幕名词出现集数统计工具</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, Helvetica, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        h1 {
+            color: #1a1a1a;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .container {
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .upload-section, .terms-section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        h2 {
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+            margin-top: 0;
+            color: #555;
+        }
+        input[type="file"], textarea, select { 
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        #termsInput { 
+            height: 200px; 
+            resize: vertical;
+            font-size: 1.1em;
+        }
+        button {
+            background: #4CAF50;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        
+        /* Tab 样式 */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+            flex-wrap: wrap; 
+        }
+        .tab-button {
+            padding: 12px 15px; 
+            margin-right: 5px; 
+            cursor: pointer;
+            font-size: 14px; 
+            font-weight: bold;
+            color: #555;
+            background-color: #e9ecef;
+            border: none;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            transition: background-color 0.3s, color 0.3s;
+            position: relative;
+            top: 2px;
+            white-space: nowrap;
+        }
+        .tab-button.active {
+            background-color: #fff;
+            color: #4CAF50;
+            border: 2px solid #ddd;
+            border-bottom: none;
+            top: 0;
+        }
+        .tab-content {
+            display: none;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        .summary-item {
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+        .term-group-summary {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #e0e0e0;
+        }
+        .system-summary-header {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #6f42c1; 
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f7f3fb; 
+            border-radius: 5px;
+        }
+        .episode-group {
+            margin-bottom: 15px;
+            margin-left: 15px;
+        }
+        .episode-group h4 {
+            font-size: 1.1em;
+            color: #007acc;
+            margin: 0 0 10px 0;
+        }
+        .timeline {
+            font-size: 0.95em;
+            color: #555;
+            margin-left: 20px;
+            padding-left: 0;
+            list-style-type: none;
+        }
+        .timeline li {
+            position: relative;
+            margin-bottom: 8px;
+            color: #555; 
+        }
+        .timeline li::before {
+            content: '•';
+            position: absolute;
+            left: -15px;
+            top: 0;
+            color: #999;
+            font-size: 1.2em;
+        }
+        .highlight {
+            color: #d9534f;
+            font-weight: bold;
+        }
+        .system-term {
+            color: #6f42c1;
+            font-weight: bold;
+        }
+        .missing-term {
+            color: #d9534f;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>SRT字幕名词出现集数统计工具</h1>
+
+    <div class="container">
+        <div class="upload-section">
+            <h2>上传字幕文件</h2>
+            <p>请上传多个SRT字幕文件（每集一个文件）：</p>
+            <input type="file" id="srtFiles" multiple accept=".srt">
+            <p><small>提示：请确保每个SRT文件的文件名包含集数信息（如 "01.srt", "第10集.srt" 等），以便正确识别集数。</small></p>
+        </div>
+
+        <div class="terms-section">
+            <h2>输入要查找的名词/术语</h2>
+            <p>请选择一个系统术语表（可选）：</p>
+            <select id="systemTermsSelect">
+                <option value="none">不使用系统术语表</option>
+                <option value="ancient">古装剧常用人称/地点</option>
+                <option value="modern">现代剧常用人称/地点</option>
+            </select>
+
+            <p>请输入要查找的名词或术语（用户自定义），每个术语占一行：</p>
+            <textarea id="termsInput" placeholder="示例：嫂子&#10;大小姐"></textarea>
+        </div>
+
+        <button id="analyzeBtn">开始分析</button>
+        <button id="clearBtn">清空输入</button>
+    </div>
+
+    <div class="results-section">
+        <h2>分析结果</h2>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="handleTabClick('tab1', this)">【按名词查看结果】(自定义)</button>
+            <button class="tab-button" onclick="handleTabClick('tab2', this)">【按名词详情查看结果】(自定义)</button>
+            <button class="tab-button" onclick="handleTabClick('tab3', this)">【按集查看结果】</button>
+            <button class="tab-button" onclick="handleTabClick('tab4', this)">【系统增加名词结果】</button>
+        </div>
+
+        <div id="tab1" class="tab-content active">
+            <div id="summaryUserResultsContainer"></div>
+        </div>
+
+        <div id="tab2" class="tab-content">
+            <div id="detailUserResultsContainer"></div>
+        </div>
+
+        <div id="tab3" class="tab-content">
+            <div id="episodeResultsContainer"></div>
+        </div>
+        
+        <div id="tab4" class="tab-content">
+            <div id="detailSystemResultsContainer"></div>
+        </div>
+    </div>
+
+<script>
+    // 定义系统术语表
+    const SYSTEM_TERMS = {
+        ancient: [
+            "姐", "妹", "叔", "舅", "姨", "姑", "兄", "哥", "嫂", "弟", "伯", "奶", "爸", "妈", "娘", "爹", "爷", "父", "儿", "婆", "孙", "祖", 
+            "先生", "小姐", "郡主", "皇子", "公主", "世子", "妃", "嫔", "王", "公公", "嬷嬷", "使者", "圣", "夫人", "氏", "妾", "姑娘", "主子", 
+            "侯", "姨娘", "老爷", "母后", "侍卫", "探花", "君", "臣", "太后", "老夫", "老朽", "父王", 
+            "朝", "国", "书院", "宫", "镇", "乡", "城", "坊", "巷", "山", "堂", "庙", "府", "家", "房", "祠", "州", "域", "关", 
+            "二哥", "三哥", "二皇子", "三皇子"
+        ],
+        modern: [
+            "姐", "妹", "叔", "舅", "姨", "姑", "兄", "哥", "嫂", "弟", "伯", "奶", "爸", "妈", "娘", "爹", "爷", "父", "儿", "婆", "孙", "祖", 
+            "先生", "女士", "小姐", "师傅", "老师", "同学", "主任", "学长", "学妹", "院长", "董", "总", "会长", "秘书", "特助", 
+            "少", "阿", "小", "老", "儿", "氏", 
+            "家", "院", "集团", "城", "邦", "酒店", "豪门", "大学", "小学", "晚宴", "山庄", "花园", "晚会", "工厂", "资本", "大赛", 
+            "老大", "老二", "老三", "老四", "大哥", "二哥", "三哥", "女王"
+        ]
+    };
+
+    // 完整的组合词列表，只要字幕中出现这些组合词，就排除其中系统名词的匹配
+    const FULL_FILTERS = [
+        "少于", "了不少", "中不少", "值不少", "至少", "多少", "在少数", "少数人", "总价值", "总价是", "总价在", 
+        "小时候", "个小时", "大小", "小的", "真小", "小型", "自小", "小心", "老同学", "那儿", "一会儿", "少腿儿", "自个儿", 
+        "正儿八经", "这活儿", "待会儿", "这会儿", "没事儿", "完事儿", "大家", "一家", "这家", "科学家", "家族", "家伙两家", 
+        "行家", "家常", "院墙", "全城", "城墙", "去酒店", "回酒店", "在酒店", "的酒店", "是酒店", "这个酒店", 
+        "我们酒店", "这间酒店", "到酒店", "大学毕业", "大学同学", "大学生活", "大学时光", "大学生", "自小学", 
+        "晚宴地点", "的晚宴", "参加晚宴", "这位兄弟", "几个兄弟", "两兄弟", "俩兄弟", "难兄难弟", "弟兄们", 
+        "弟兄", "婆娘", "父亲", "那师傅", "小石头", "小西瓜"
+    ].map(w => w.toLowerCase());
+
+
+    // 紧邻左侧的过滤词（系统名词跟在这些词后面，可能构成普通词组）
+    const LEFT_FILTERS = [
+        "少于", "不少", "中不", "值不", "总价", "小", "大", "真", "自", "老", "那", "一", "几", "每", "哪个", "个", 
+        "正儿八", "这活", "待", "没", "完", "这", "那", "哪", "啥", "什么", "怎么", 
+        "科学", "行", "家常", "院", "全", "城", "去", "回", "在", "的", "是", "这个", "我们", "这间", "到", 
+        "大学", "自小", "晚宴", "参加", 
+        "位", "几", "两", "俩", "难兄", "难",
+        "阿", "臭", "死", "亲", "妈的", "他", "她", "你", "我", "你我", "你家", "我家", "他家"
+    ].map(w => w.toLowerCase());
+    
+    // 紧邻右侧的过滤词（系统名词在这些词前面，可能构成普通词组）
+    const RIGHT_FILTERS = [
+        "于", "了", "中", "值", "总", "时候", "个", "的", "型", "心", "同学", "主任", "长", "妹", "儿", "活儿", "事儿", 
+        "族", "伙两", "常", "墙", "市", "房", "厅", "具", "儿八经",
+        "毕", "同", "生", "光", "点", "现场", "地点",
+        "夫", "婆", "娘", "亲", "爱", "爱", "子", "孙", "女", "婿", "媳", 
+        "兄弟们", "弟兄", "石头", "西瓜", "萝卜", "菜"
+    ].map(w => w.toLowerCase());
+
+
+    function handleTabClick(tabId, clickedButton) {
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+        clickedButton.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const srtFilesInput = document.getElementById('srtFiles');
+        const termsInput = document.getElementById('termsInput');
+        const systemTermsSelect = document.getElementById('systemTermsSelect');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        
+        const summaryUserResultsContainer = document.getElementById('summaryUserResultsContainer');
+        const detailUserResultsContainer = document.getElementById('detailUserResultsContainer');
+        const episodeResultsContainer = document.getElementById('episodeResultsContainer');
+        const detailSystemResultsContainer = document.getElementById('detailSystemResultsContainer'); 
+
+        let srtFiles = [];
+        let parsedFiles = [];
+        
+        // ----------------------- 数据处理 -----------------------
+
+        srtFilesInput.addEventListener('change', e => {
+            srtFiles = Array.from(e.target.files).map(file => {
+                const fn = file.name.toLowerCase();
+                let epMatch = fn.match(/(\d+)\.srt/) || fn.match(/第(\d+)集/) || fn.match(/e(\d+)\./) || fn.match(/ep(\d+)\./);
+                let ep = epMatch ? epMatch[1] : '';
+                return { file, episodeNumber: ep, originalFilename: file.name };
+            }).sort((a, b) => {
+                const epA = parseInt(a.episodeNumber);
+                const epB = parseInt(b.episodeNumber);
+                return epA - epB;
+            });
+        });
+
+        /**
+         * 检查系统名词是否应该被过滤。
+         * 排除条件有两个：
+         * 1. 被更大的用户自定义名词覆盖（上下文排除）。
+         * 2. 属于预定义的非名词组合（过滤词典排除）。
+         * @param {string} systemTerm - 当前系统名词。
+         * @param {string} text - 整个字幕文本。
+         * @param {Array<string>} userTerms - 用户自定义名词列表。
+         * @returns {boolean} 如果该系统名词应该被排除，返回 true。
+         */
+        function isSystemTermFiltered(systemTerm, text, userTerms) {
+            const lowerText = text.toLowerCase().replace(/[\s,，.。!！?？]/g, ''); // 移除空格和常见标点，以匹配紧邻
+            const lowerSystemTerm = systemTerm.toLowerCase();
+            
+            let index = -1;
+            while ((index = lowerText.indexOf(lowerSystemTerm, index + 1)) !== -1) {
+                
+                // ------------------ 排除条件 1: 用户自定义名词覆盖 (最高优先级) ------------------
+                const CONTEXT_RANGE = 3; 
+                const start = Math.max(0, index - CONTEXT_RANGE);
+                const end = Math.min(lowerText.length, index + lowerSystemTerm.length + CONTEXT_RANGE);
+                const context = lowerText.substring(start, end);
+                
+                for (const userTerm of userTerms) {
+                    const lowerUserTerm = userTerm.toLowerCase().replace(/[\s,，.。!！?？]/g, '');
+                    // 检查用户词语是否包含系统词语（排除如 "林小姐" 包含 "小" 的情况）
+                    if (lowerUserTerm.length > lowerSystemTerm.length && context.includes(lowerUserTerm)) {
+                        return true; 
+                    }
+                }
+
+                // ------------------ 排除条件 2: 过滤词典匹配 ------------------
+
+                // A. 完整词语匹配 (最高级别排除，只要出现就排除该句中所有系统名词的该次匹配)
+                if (FULL_FILTERS.some(filter => lowerText.includes(filter))) {
+                    // 注意：这里是针对整个字幕文本的判断，如果字幕中出现了“老同学”，则这一句里所有匹配到的“老”或“学”都会被过滤。
+                    return true;
+                }
+
+                // B. 左侧过滤词匹配 (systemTerm 出现在 filter 后面，且紧邻)
+                const leftCheck = lowerText.substring(Math.max(0, index - 10), index);
+                if (LEFT_FILTERS.some(filter => {
+                    const filterIndex = leftCheck.lastIndexOf(filter);
+                    return filterIndex !== -1 && (filterIndex + filter.length) === index;
+                })) {
+                    return true;
+                }
+                
+                // C. 右侧过滤词匹配 (systemTerm 出现在 filter 前面，且紧邻)
+                const rightCheck = lowerText.substring(index + lowerSystemTerm.length, Math.min(lowerText.length, index + lowerSystemTerm.length + 10));
+                if (RIGHT_FILTERS.some(filter => rightCheck.startsWith(filter))) {
+                    return true;
+                }
+            }
+            return false; // 该系统名词在该句中没有被任何过滤规则命中
+        }
+
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (!srtFiles.length) return alert('请先上传字幕文件');
+            
+            // 1. 划分术语列表
+            const userTerms = termsInput.value.trim().split('\n').filter(Boolean).map(term => term.trim());
+            const selectedTermKey = systemTermsSelect.value;
+            const systemTermsFull = (selectedTermKey !== 'none' && SYSTEM_TERMS[selectedTermKey]) ? SYSTEM_TERMS[selectedTermKey] : [];
+            
+            const systemOnlyTerms = systemTermsFull.filter(term => !userTerms.includes(term));
+            
+            const allTerms = [...new Set([...userTerms, ...systemOnlyTerms])];
+            if (!allTerms.length) return alert('请输入要查找的名词或术语，或选择一个系统术语表。');
+
+            // 清空容器
+            summaryUserResultsContainer.innerHTML = '';
+            detailUserResultsContainer.innerHTML = '';
+            episodeResultsContainer.innerHTML = '';
+            detailSystemResultsContainer.innerHTML = '';
+
+            // 2. 解析文件 (保持不变)
+            parsedFiles = await Promise.all(srtFiles.map(async f => {
+                const text = await f.file.text();
+                const blocks = text.split(/\r?\n\s*\r?\n/).filter(b => b.trim());
+                const subs = blocks.map(b => {
+                    const lines = b.split(/\r?\n/);
+                    const idx = lines[0].trim();
+                    const time = lines[1].trim();
+                    const textContent = lines.slice(2).join(' ').trim();
+                    return { idx, time, text: textContent };
+                });
+                return { ...f, subs };
+            }));
+
+            const epMap = new Map();
+            const userTermDataMap = new Map(userTerms.map(term => [term, { episodes: new Set(), detailsByEpisode: new Map() }]));
+            const systemTermDataMap = new Map(systemOnlyTerms.map(term => [term, { episodes: new Set(), detailsByEpisode: new Map() }]));
+
+            parsedFiles.forEach(p => {
+                if (p.episodeNumber) {
+                    epMap.set(p.episodeNumber, { subs: p.subs, filename: p.originalFilename });
+                }
+            });
+
+            // 3. 查找匹配项并组织数据
+            epMap.forEach(({ subs }, ep) => {
+                allTerms.forEach(term => {
+                    const isUserTerm = userTermDataMap.has(term);
+                    const isSystemOnlyTerm = systemTermDataMap.has(term);
+                    
+                    const termDataMapToUse = isUserTerm ? userTermDataMap : (isSystemOnlyTerm ? systemTermDataMap : null);
+
+                    if (!termDataMapToUse) return;
+
+                    subs.forEach(({ idx, time, text }) => {
+                        const originalText = text;
+                        if (originalText.toLowerCase().includes(term.toLowerCase())) {
+                            
+                            if (isSystemOnlyTerm) {
+                                // 如果该系统词语被过滤，则跳过此次记录
+                                if (isSystemTermFiltered(term, originalText, userTerms)) {
+                                    return;
+                                }
+                            }
+                            
+                            const termData = termDataMapToUse.get(term);
+                            termData.episodes.add(ep);
+
+                            if (!termData.detailsByEpisode.has(ep)) {
+                                termData.detailsByEpisode.set(ep, []);
+                            }
+                            const [startTime, endTime] = time.split(' --> ');
+                            termData.detailsByEpisode.get(ep).push({ idx, time: `${startTime} --> ${endTime}`, text: originalText });
+                        }
+                    });
+                });
+            });
+
+            // 4. 渲染结果
+            
+            // Tab 1 & 2 (自定义术语)
+            userTerms.forEach(term => {
+                const termData = userTermDataMap.get(term);
+                renderSummary(termData, term, false, summaryUserResultsContainer);
+                renderDetails(termData, term, false, detailUserResultsContainer);
+            });
+            
+            // Tab 4 (系统术语)
+            renderSystemDetails(systemTermDataMap, systemOnlyTerms, detailSystemResultsContainer);
+            
+            // Tab 3 (全集视图)
+            renderEpisodeView(parsedFiles, userTerms, systemOnlyTerms);
+        });
+
+        clearBtn.addEventListener('click', () => {
+            srtFilesInput.value = termsInput.value = '';
+            systemTermsSelect.value = 'none'; 
+            summaryUserResultsContainer.innerHTML = '';
+            detailUserResultsContainer.innerHTML = '';
+            episodeResultsContainer.innerHTML = '';
+            detailSystemResultsContainer.innerHTML = '';
+            srtFiles = [];
+            parsedFiles = [];
+        });
+
+        // ----------------------- 渲染函数 -----------------------
+
+        /**
+         * Tab 1: 渲染名词摘要 (用户自定义)
+         */
+        function renderSummary(termData, term, isSystem, container) {
+            const div = document.createElement('div');
+            div.className = 'summary-item';
+            const mainTermEpisodes = [...termData.episodes].sort((a, b) => parseInt(a) - parseInt(b));
+            
+            div.innerHTML = mainTermEpisodes.length
+                ? `<strong>${term}：</strong>在 ${mainTermEpisodes.join('、')} 集出现，共 ${mainTermEpisodes.length} 集出现`
+                : `<strong class="missing-term">${term}：</strong>没有出现`;
+            
+            container.appendChild(div);
+        }
+
+        /**
+         * Tab 2: 渲染名词详情 (用户自定义)
+         */
+        function renderDetails(termData, term, isSystem, container) {
+            const div = document.createElement('div');
+            const mainTermEpisodes = [...termData.episodes].sort((a, b) => parseInt(a) - parseInt(b));
+            
+            const termClass = 'highlight';
+            const missingClass = 'missing-term';
+
+            const mainTermHtml = mainTermEpisodes.length
+                ? `<strong class="${termClass}">${term}：</strong>在 ${mainTermEpisodes.join('、')} 集出现，共 ${mainTermEpisodes.length} 集出现`
+                : `<strong class="${missingClass}">${term}：</strong>没有出现`;
+
+            let html = `<div class="term-group-summary">${mainTermHtml}</div>`;
+            if (mainTermEpisodes.length) {
+                mainTermEpisodes.forEach(ep => {
+                    const details = termData.detailsByEpisode.get(ep);
+                    if (details) {
+                        html += `<div class="episode-group"><h4>第${ep}集</h4>`;
+                        html += `<ul class="timeline">`;
+                        details.forEach(d => {
+                            const termRegex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                            const highlightText = d.text.replace(termRegex, `<span class="${termClass}">$1</span>`);
+                            html += `<li>${d.idx} ${d.time} ${highlightText}</li>`;
+                        });
+                        html += `</ul></div>`;
+                    }
+                });
+            }
+            div.innerHTML = html;
+            container.appendChild(div);
+        }
+        
+        /**
+         * Tab 4: 渲染系统名词详情 (只显示出现的词，带总汇行)
+         */
+        function renderSystemDetails(systemTermDataMap, systemOnlyTerms, container) {
+            const appearingTerms = [];
+            const termDetailsHtml = [];
+
+            systemOnlyTerms.forEach(term => {
+                const termData = systemTermDataMap.get(term);
+                const mainTermEpisodes = [...termData.episodes].sort((a, b) => parseInt(a) - parseInt(b));
+                
+                if (mainTermEpisodes.length === 0) {
+                    // 过滤掉未出现的词语
+                    return; 
+                }
+                
+                // 收集出现的词语和集数信息用于总汇行
+                appearingTerms.push(`${term}（${mainTermEpisodes.length}集）`);
+
+                // 生成该词语的详细 HTML
+                const termClass = 'system-term';
+
+                const mainTermHtml = `<strong class="${termClass}">${term}：</strong>在 ${mainTermEpisodes.join('、')} 集出现，共 ${mainTermEpisodes.length} 集出现`;
+
+                let html = `<div class="term-group-summary">${mainTermHtml}</div>`;
+                
+                mainTermEpisodes.forEach(ep => {
+                    const details = termData.detailsByEpisode.get(ep);
+                    if (details) {
+                        html += `<div class="episode-group"><h4>第${ep}集</h4>`;
+                        html += `<ul class="timeline">`;
+                        details.forEach(d => {
+                            const termRegex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                            const highlightText = d.text.replace(termRegex, `<span class="${termClass}">$1</span>`);
+                            html += `<li>${d.idx} ${d.time} ${highlightText}</li>`;
+                        });
+                        html += `</ul></div>`;
+                    }
+                });
+                termDetailsHtml.push(html);
+            });
+            
+            // 构造总汇行
+            let summaryHeaderHtml = '';
+            if (appearingTerms.length > 0) {
+                summaryHeaderHtml = `<div class="system-summary-header">总共出现系统名词：${appearingTerms.join('、')}</div>`;
+            } else {
+                 summaryHeaderHtml = `<div class="system-summary-header">未发现系统增加的名词在字幕中出现（或被过滤规则排除）。</div>`;
+            }
+
+            container.innerHTML = summaryHeaderHtml + termDetailsHtml.join('');
+        }
+
+
+        /**
+         * Tab 3: 渲染按集查看结果 (需要同时考虑两种过滤规则)
+         */
+        function renderEpisodeView(allParsedFiles, userTerms, systemOnlyTerms) {
+            allParsedFiles.forEach(file => {
+                const ep = file.episodeNumber;
+                if (!ep) return; 
+
+                const div = document.createElement('div');
+                div.className = 'episode-view-item';
+
+                const uniqueTermsInEp = new Set();
+                let hasMatch = false;
+
+                const timelineHtml = `<ul class="timeline">` + file.subs.map(sub => {
+                    let processedText = sub.text;
+                    const originalText = sub.text;
+                    
+                    // 1. 处理用户自定义词语 (红色) - 永远不被排除
+                    userTerms.forEach(term => {
+                        const termRegex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                        if (originalText.toLowerCase().includes(term.toLowerCase())) {
+                            uniqueTermsInEp.add(term);
+                            hasMatch = true;
+                        }
+                        
+                        processedText = processedText.replace(termRegex, (match, p1) => {
+                            return `<span class="highlight">${p1}</span>`;
+                        });
+                    });
+
+                    // 2. 处理系统词语 (紫色) - 需应用过滤规则
+                    systemOnlyTerms.forEach(term => {
+                        const termRegex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+
+                        if (originalText.toLowerCase().includes(term.toLowerCase())) {
+                            // 检查该词是否被过滤
+                            if (!isSystemTermFiltered(term, originalText, userTerms)) {
+                                uniqueTermsInEp.add(term);
+                                hasMatch = true;
+
+                                processedText = processedText.replace(termRegex, (match, p1) => {
+                                    // 只有当该文本片段没有被用户自定义的红色高亮覆盖时，才使用紫色高亮
+                                    // 检查是否在红色标签内
+                                    if (!processedText.includes(`<span class="highlight">${p1}</span>`)) {
+                                         return `<span class="system-term">${p1}</span>`;
+                                    }
+                                    return match;
+                                });
+                            }
+                        }
+                    });
+
+                    const [startTime, endTime] = sub.time.split(' --> ');
+                    
+                    return `<li>${sub.idx} ${startTime} --> ${endTime} ${processedText}</li>`;
+                }).join('') + `</ul>`;
+                
+                // 3. 构造标题和结果内容
+                div.innerHTML = `<h3>第${ep}集 (文件名: ${file.originalFilename})</h3>`;
+                
+                if (hasMatch) {
+                    div.innerHTML += `<p><strong>出现名词：</strong> ${[...uniqueTermsInEp].join('、')}</p>`;
+                } else {
+                    div.innerHTML += `<p><strong>出现名词：</strong> 无</p>`;
+                }
+                
+                div.innerHTML += timelineHtml;
+
+                episodeResultsContainer.appendChild(div);
+            });
+        }
+    });
+</script>
+
+</body>
+</html>
