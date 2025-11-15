@@ -170,6 +170,13 @@
             color: #d9534f;
             font-weight: bold;
         }
+        /* 样式微调，用于新的独立 tab */
+        #missingUserTermsContainer {
+            padding: 15px;
+            background-color: #fff3cd; /* 提示色 */
+            border: 1px solid #ffeeba;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -205,13 +212,18 @@
         <h2>分析结果</h2>
         
         <div class="tabs">
-            <button class="tab-button active" onclick="handleTabClick('tab1', this)">【按名词查看结果】(自定义)</button>
+            <button class="tab-button active" onclick="handleTabClick('tab5', this)">【没有查找到名词】(自定义)</button>
+            <button class="tab-button" onclick="handleTabClick('tab1', this)">【按名词查看结果】(自定义)</button>
             <button class="tab-button" onclick="handleTabClick('tab2', this)">【按名词详情查看结果】(自定义)</button>
             <button class="tab-button" onclick="handleTabClick('tab3', this)">【按集查看结果】</button>
             <button class="tab-button" onclick="handleTabClick('tab4', this)">【系统增加名词结果】</button>
         </div>
+        
+        <div id="tab5" class="tab-content active">
+            <div id="missingUserTermsContainer"></div> 
+        </div>
 
-        <div id="tab1" class="tab-content active">
+        <div id="tab1" class="tab-content">
             <div id="summaryUserResultsContainer"></div>
         </div>
 
@@ -297,7 +309,8 @@
         const summaryUserResultsContainer = document.getElementById('summaryUserResultsContainer');
         const detailUserResultsContainer = document.getElementById('detailUserResultsContainer');
         const episodeResultsContainer = document.getElementById('episodeResultsContainer');
-        const detailSystemResultsContainer = document.getElementById('detailSystemResultsContainer'); 
+        const detailSystemResultsContainer = document.getElementById('detailSystemResultsContainer');
+        const missingUserTermsContainer = document.getElementById('missingUserTermsContainer'); // 独立容器
 
         let srtFiles = [];
         let parsedFiles = [];
@@ -319,13 +332,6 @@
 
         /**
          * 检查系统名词是否应该被过滤。
-         * 排除条件有两个：
-         * 1. 被更大的用户自定义名词覆盖（上下文排除）。
-         * 2. 属于预定义的非名词组合（过滤词典排除）。
-         * @param {string} systemTerm - 当前系统名词。
-         * @param {string} text - 整个字幕文本。
-         * @param {Array<string>} userTerms - 用户自定义名词列表。
-         * @returns {boolean} 如果该系统名词应该被排除，返回 true。
          */
         function isSystemTermFiltered(systemTerm, text, userTerms) {
             const lowerText = text.toLowerCase().replace(/[\s,，.。!！?？]/g, ''); // 移除空格和常见标点，以匹配紧邻
@@ -350,9 +356,8 @@
 
                 // ------------------ 排除条件 2: 过滤词典匹配 ------------------
 
-                // A. 完整词语匹配 (最高级别排除，只要出现就排除该句中所有系统名词的该次匹配)
+                // A. 完整词语匹配 (最高级别排除)
                 if (FULL_FILTERS.some(filter => lowerText.includes(filter))) {
-                    // 注意：这里是针对整个字幕文本的判断，如果字幕中出现了“老同学”，则这一句里所有匹配到的“老”或“学”都会被过滤。
                     return true;
                 }
 
@@ -379,7 +384,8 @@
             if (!srtFiles.length) return alert('请先上传字幕文件');
             
             // 1. 划分术语列表
-            const userTerms = termsInput.value.trim().split('\n').filter(Boolean).map(term => term.trim());
+            const rawUserTerms = termsInput.value.trim().split('\n').filter(Boolean).map(term => term.trim());
+            const userTerms = [...new Set(rawUserTerms)]; // 确保唯一性
             const selectedTermKey = systemTermsSelect.value;
             const systemTermsFull = (selectedTermKey !== 'none' && SYSTEM_TERMS[selectedTermKey]) ? SYSTEM_TERMS[selectedTermKey] : [];
             
@@ -393,6 +399,7 @@
             detailUserResultsContainer.innerHTML = '';
             episodeResultsContainer.innerHTML = '';
             detailSystemResultsContainer.innerHTML = '';
+            missingUserTermsContainer.innerHTML = ''; 
 
             // 2. 解析文件 (保持不变)
             parsedFiles = await Promise.all(srtFiles.map(async f => {
@@ -417,7 +424,7 @@
                     epMap.set(p.episodeNumber, { subs: p.subs, filename: p.originalFilename });
                 }
             });
-
+            
             // 3. 查找匹配项并组织数据
             epMap.forEach(({ subs }, ep) => {
                 allTerms.forEach(term => {
@@ -454,18 +461,33 @@
 
             // 4. 渲染结果
             
+            const missingUserTerms = [];
+            
             // Tab 1 & 2 (自定义术语)
             userTerms.forEach(term => {
                 const termData = userTermDataMap.get(term);
+                if (termData.episodes.size === 0) {
+                    missingUserTerms.push(term); // 收集未找到的术语
+                }
+                // 仅渲染已出现的术语到 Tab 1
                 renderSummary(termData, term, false, summaryUserResultsContainer);
                 renderDetails(termData, term, false, detailUserResultsContainer);
             });
+            
+            // Tab 5: 渲染未找到的自定义术语
+            renderMissingUserTerms(missingUserTerms, missingUserTermsContainer);
             
             // Tab 4 (系统术语)
             renderSystemDetails(systemTermDataMap, systemOnlyTerms, detailSystemResultsContainer);
             
             // Tab 3 (全集视图)
             renderEpisodeView(parsedFiles, userTerms, systemOnlyTerms);
+            
+            // 默认激活 Tab 5
+            document.querySelector('.tab-button.active').classList.remove('active');
+            document.querySelector('.tab-content.active').classList.remove('active');
+            document.querySelector('[onclick="handleTabClick(\'tab5\', this)"]').classList.add('active');
+            document.getElementById('tab5').classList.add('active');
         });
 
         clearBtn.addEventListener('click', () => {
@@ -475,6 +497,7 @@
             detailUserResultsContainer.innerHTML = '';
             episodeResultsContainer.innerHTML = '';
             detailSystemResultsContainer.innerHTML = '';
+            missingUserTermsContainer.innerHTML = ''; 
             srtFiles = [];
             parsedFiles = [];
         });
@@ -482,18 +505,34 @@
         // ----------------------- 渲染函数 -----------------------
 
         /**
-         * Tab 1: 渲染名词摘要 (用户自定义)
+         * Tab 1: 渲染名词摘要 (用户自定义 - 仅已出现)
          */
         function renderSummary(termData, term, isSystem, container) {
-            const div = document.createElement('div');
-            div.className = 'summary-item';
             const mainTermEpisodes = [...termData.episodes].sort((a, b) => parseInt(a) - parseInt(b));
             
-            div.innerHTML = mainTermEpisodes.length
-                ? `<strong>${term}：</strong>在 ${mainTermEpisodes.join('、')} 集出现，共 ${mainTermEpisodes.length} 集出现`
-                : `<strong class="missing-term">${term}：</strong>没有出现`;
+            if (mainTermEpisodes.length > 0) {
+                 const div = document.createElement('div');
+                 div.className = 'summary-item';
+                 div.innerHTML = `<strong>${term}：</strong>在 ${mainTermEpisodes.join('、')} 集出现，共 ${mainTermEpisodes.length} 集出现`;
+                 container.appendChild(div);
+            }
+        }
+        
+        /**
+         * Tab 5: 渲染未找到的用户自定义术语（新增）
+         */
+        function renderMissingUserTerms(missingTerms, container) {
+            if (missingTerms.length === 0) {
+                container.innerHTML = '所有输入的自定义名词或术语都在字幕中找到了匹配项。'; 
+                return;
+            }
             
-            container.appendChild(div);
+            let html = '';
+            html += `<div class="term-group-summary"><strong class="missing-term">【没有查找到名词】(自定义)</strong></div>`;
+            html += `<div>没有出现如下名词：</div>`;
+            html += missingTerms.map(term => `<div class="summary-item"><strong class="missing-term">${term}</strong></div>`).join('');
+            
+            container.innerHTML = html;
         }
 
         /**
@@ -508,7 +547,7 @@
 
             const mainTermHtml = mainTermEpisodes.length
                 ? `<strong class="${termClass}">${term}：</strong>在 ${mainTermEpisodes.join('、')} 集出现，共 ${mainTermEpisodes.length} 集出现`
-                : `<strong class="${missingClass}">${term}：</strong>没有出现`;
+                : `<strong class="${missingClass}">${term}：</strong>没有出现`; // Tab 2 仍显示“没有出现”的详细记录
 
             let html = `<div class="term-group-summary">${mainTermHtml}</div>`;
             if (mainTermEpisodes.length) {
@@ -542,7 +581,6 @@
                 const mainTermEpisodes = [...termData.episodes].sort((a, b) => parseInt(a) - parseInt(b));
                 
                 if (mainTermEpisodes.length === 0) {
-                    // 过滤掉未出现的词语
                     return; 
                 }
                 
@@ -588,6 +626,8 @@
          * Tab 3: 渲染按集查看结果 (需要同时考虑两种过滤规则)
          */
         function renderEpisodeView(allParsedFiles, userTerms, systemOnlyTerms) {
+            episodeResultsContainer.innerHTML = ''; // 清空容器
+            
             allParsedFiles.forEach(file => {
                 const ep = file.episodeNumber;
                 if (!ep) return; 
@@ -629,7 +669,7 @@
                                     // 只有当该文本片段没有被用户自定义的红色高亮覆盖时，才使用紫色高亮
                                     // 检查是否在红色标签内
                                     if (!processedText.includes(`<span class="highlight">${p1}</span>`)) {
-                                         return `<span class="system-term">${p1}</span>`;
+                                            return `<span class="system-term">${p1}</span>`;
                                     }
                                     return match;
                                 });
