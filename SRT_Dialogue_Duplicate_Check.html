@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>SRT 字幕重复项批量检查器</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; max-width: 800px; margin: 20px auto; padding: 0 20px; color: #333; }
+        .upload-area { border: 2px dashed #ccc; padding: 30px; text-align: center; cursor: pointer; background: #f9f9f9; border-radius: 8px; }
+        .upload-area:hover { border-color: #666; }
+        .summary { margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px; font-weight: bold; }
+        .result-item { margin-top: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
+        .file-title { color: #d9534f; border-bottom: 2px solid #d9534f; padding-bottom: 5px; margin-bottom: 10px; }
+        .duplicate-block { background: #fff5f5; border-left: 4px solid #ff4d4f; padding: 10px; margin: 10px 0; white-space: pre-wrap; font-family: monospace; }
+        .no-error { color: #52c41a; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>🎬 SRT 字幕相邻重复检查工具</h2>
+    <p>说明：选择多个 SRT 文件，系统将自动检测同集中是否存在<strong>连续两行内容完全一致</strong>的情况。</p>
+
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        点击或拖拽上传多个 SRT 文件
+        <input type="file" id="fileInput" multiple accept=".srt" style="display:none" onchange="handleFiles(this.files)">
+    </div>
+
+    <div id="output"></div>
+
+    <script>
+        async function handleFiles(files) {
+            const output = document.getElementById('output');
+            output.innerHTML = "正在处理中...";
+            
+            let results = [];
+            let errorFilesCount = 0;
+            let errorFileNames = [];
+
+            for (let file of files) {
+                const text = await file.text();
+                const duplicates = findDuplicates(text);
+                
+                if (duplicates.length > 0) {
+                    errorFilesCount++;
+                    // 提取文件名中的数字或名称
+                    const fileNameClean = file.name.replace('.srt', '');
+                    errorFileNames.push(fileNameClean);
+                    results.push({ name: fileNameClean, content: duplicates });
+                }
+            }
+
+            // 渲染结果
+            if (results.length === 0) {
+                output.innerHTML = '<p class="no-error">✅ 检查完毕，所有文件均未发现相邻重复台词。</p>';
+                return;
+            }
+
+            let html = `
+                <div class="summary">
+                    存在重复集数：${errorFileNames.join('、')}（共${errorFilesCount}集）
+                </div>
+                <h3>重复情况明细：</h3>
+            `;
+
+            results.forEach(res => {
+                html += `<div class="result-item"><h3 class="file-title">${res.name}</h3>`;
+                res.content.forEach(dup => {
+                    html += `<div class="duplicate-block">${dup}</div>`;
+                });
+                html += `</div>`;
+            });
+
+            output.innerHTML = html;
+        }
+
+        function findDuplicates(text) {
+            // 将SRT按照空行分割成块
+            const blocks = text.trim().split(/\n\s*\n/);
+            let found = [];
+
+            for (let i = 0; i < blocks.length - 1; i++) {
+                const currentLines = blocks[i].split('\n').map(l => l.trim());
+                const nextLines = blocks[i + 1].split('\n').map(l => l.trim());
+
+                // 假设SRT标准格式：第一行编号，第二行时间，第三行开始是内容
+                const currentText = currentLines.slice(2).join(' ');
+                const nextText = nextLines.slice(2).join(' ');
+
+                // 如果内容相同且不为空
+                if (currentText && currentText === nextText) {
+                    found.push(`${blocks[i]}\n\n${blocks[i+1]}`);
+                }
+            }
+            return found;
+        }
+    </script>
+</body>
+</html>
