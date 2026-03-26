@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>字幕批量对比工具</title>
+  <style>
+    :root {
+      --bg: #f6efe6;
+      --panel: rgba(255, 250, 244, 0.95);
+      --panel-strong: rgba(255, 255, 255, 0.92);
+      --ink: #2b2018;
+      --muted: #6e6258;
+      --line: #d9c6b2;
+      --accent: #b85f3d;
+      --good: #1f7a4d;
+      --good-soft: #ddf2e7;
+      --warn: #b56d18;
+      --warn-soft: #feefd4;
+      --bad: #a43333;
+      --bad-soft: #fff1f1;
+      --shadow: 0 18px 44px rgba(54, 34, 18, 0.08);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 35%),
+        linear-gradient(135deg, #f0e1d0 0%, #fbf6f0 48%, #efe6da 100%);
+    }
+
+    .wrap {
+      width: min(1220px, calc(100vw - 32px));
+      margin: 28px auto 48px;
+    }
+
+    .hero {
+      padding: 28px;
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(255, 249, 241, 0.96), rgba(255, 244, 236, 0.92));
+      border: 1px solid rgba(184, 149, 121, 0.18);
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.1;
+      letter-spacing: 0.02em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .card, .section, .stat {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .card { overflow: hidden; }
+
+    .card-head, .section-head {
+      padding: 18px 20px 10px;
+    }
+
+    .card-head h2, .section-head h3 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .card-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .dropzone {
+      margin: 14px 20px 20px;
+      border: 2px dashed #c8a98d;
+      border-radius: 18px;
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s ease;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(251,244,237,0.84));
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .dropzone strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .dropzone span {
+      display: block;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    input[type="file"] { display: none; }
+
+    .meta {
+      min-height: 42px;
+      padding: 0 20px 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #fffaf5;
+    }
+
+    .secondary {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid #bda38f;
+    }
+
+    .result {
+      display: grid;
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .stat {
+      padding: 16px 18px;
+      background: var(--panel-strong);
+    }
+
+    .label {
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .status-banner {
+      padding: 18px 20px;
+      border-radius: 18px;
+      border: 1px solid transparent;
+      box-shadow: var(--shadow);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .status-good { background: var(--good-soft); color: #145033; border-color: #b8e0ca; }
+    .status-warn { background: var(--warn-soft); color: #7a4c11; border-color: #efcf91; }
+    .status-bad { background: #f9dddd; color: #7b2121; border-color: #e8b5b5; }
+
+    .section { overflow: hidden; }
+    .section-head { border-bottom: 1px solid rgba(217, 198, 178, 0.68); }
+    .section-body { padding: 18px 20px 20px; }
+
+    .diff-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .diff-item {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid #e6d6c7;
+      background: #fffdf9;
+    }
+
+    .diff-item h4 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .diff-tag {
+      display: inline-block;
+      margin-right: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f2e4d8;
+      color: #8a512f;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .jump-link {
+      display: inline-block;
+      margin-left: 8px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .jump-link:hover {
+      text-decoration: underline;
+    }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 126px 1fr;
+      gap: 10px;
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .k { color: var(--muted); font-weight: 700; }
+    .v { white-space: pre-wrap; word-break: break-word; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #eadccf;
+      border-radius: 14px;
+      background: #fff;
+      margin-top: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1080px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee1d5;
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+      line-height: 1.7;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    th {
+      background: #faf1e8;
+      color: #684c37;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    .row-ok { background: #f6fcf8; }
+    .row-bad { background: var(--bad-soft); }
+    .status-ok { color: var(--good); font-weight: 700; }
+    .status-bad-text { color: var(--bad); font-weight: 700; }
+
+    .hint-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.9;
+    }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95em;
+    }
+
+    @media (max-width: 900px) {
+      .grid, .summary { grid-template-columns: 1fr; }
+      .pair { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>字幕批量对比工具</h1>
+      <p>上传一批 <code>.srt</code> 和一批剧情理解 <code>.txt</code>，页面会按同名文件自动配对，例如 <code>1.srt</code> 对比 <code>1.txt</code>。页面只比较时间轴和字幕正文，支持识别缺失条目、OCR 混淆、多行对话和同一行中的双人台词拆分。</p>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-head">
+            <h2>SRT 字幕</h2>
+            <p>支持一次上传多集，自动按文件名参与配对。</p>
+          </div>
+          <label class="dropzone" for="srtFile" id="srtDropzone">
+            <strong>上传或拖入多个 .srt</strong>
+            <span>例如：<code>1.srt</code> 到 <code>80.srt</code></span>
+          </label>
+          <input id="srtFile" type="file" accept=".srt,text/plain" multiple>
+          <div class="meta" id="srtMeta">还没有选择文件</div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>剧情理解 TXT</h2>
+            <p>会自动提取逐字稿行，并剥离人物、画面、情绪说明，只保留真正字幕。</p>
+          </div>
+          <label class="dropzone" for="txtFile" id="txtDropzone">
+            <strong>上传或拖入多个 .txt</strong>
+            <span>例如：<code>1.txt</code> 到 <code>80.txt</code></span>
+          </label>
+          <input id="txtFile" type="file" accept=".txt,text/plain" multiple>
+          <div class="meta" id="txtMeta">还没有选择文件</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="compareBtn">开始批量对比</button>
+        <button class="secondary" id="resetBtn">清空重来</button>
+      </div>
+    </section>
+
+    <section class="result">
+      <div class="status-banner status-warn" id="statusBanner">等待上传文件。上传后点击“开始批量对比”。</div>
+
+      <div class="summary">
+        <div class="stat"><div class="label">SRT 文件数</div><div class="value" id="srtCount">-</div></div>
+        <div class="stat"><div class="label">TXT 文件数</div><div class="value" id="txtCount">-</div></div>
+        <div class="stat"><div class="label">成功配对数</div><div class="value" id="pairCount">-</div></div>
+        <div class="stat"><div class="label">存在差异集数</div><div class="value" id="episodeDiffCount">-</div></div>
+      </div>
+
+      <div class="section" id="diff-section">
+        <div class="section-head"><h3>总差异详情</h3></div>
+        <div class="section-body">
+          <div class="diff-list" id="diffList">
+            <div class="diff-item">
+              <h4>还没有结果</h4>
+              <div class="pair"><div class="k">说明</div><div class="v">对比完成后，这里会按每一集展示所有不一致条目。</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="episode-section">
+        <div class="section-head"><h3>每一集明细</h3></div>
+        <div class="section-body">
+          <div class="diff-list" id="episodeList">
+            <div class="diff-item">
+              <h4>还没有结果</h4>
+              <div class="pair"><div class="k">说明</div><div class="v">对比完成后，这里会逐集显示每一句的对比结果，一致也会显示，差异会标红。</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><h3>使用说明</h3></div>
+        <div class="section-body">
+          <ul class="hint-list">
+            <li>文件名要能一一对应，例如 <code>23.srt</code> 会去匹配 <code>23.txt</code>。</li>
+            <li>不会把“序号不一致”当成差异，因为漏一条时后面序号本来就会变化。</li>
+            <li>会识别 <code>I/l/1</code>、<code>O/0</code> 等常见 OCR 混淆。</li>
+            <li>会处理 SRT 多行对话，以及 TXT 一行内用 <code>/</code> 拼在一起的双人台词。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const state = { srtFiles: [], txtFiles: [] };
+
+    const els = {
+      srtFile: document.getElementById("srtFile"),
+      txtFile: document.getElementById("txtFile"),
+      srtDropzone: document.getElementById("srtDropzone"),
+      txtDropzone: document.getElementById("txtDropzone"),
+      srtMeta: document.getElementById("srtMeta"),
+      txtMeta: document.getElementById("txtMeta"),
+      compareBtn: document.getElementById("compareBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      statusBanner: document.getElementById("statusBanner"),
+      srtCount: document.getElementById("srtCount"),
+      txtCount: document.getElementById("txtCount"),
+      pairCount: document.getElementById("pairCount"),
+      episodeDiffCount: document.getElementById("episodeDiffCount"),
+      diffList: document.getElementById("diffList"),
+      episodeList: document.getElementById("episodeList")
+    };
+
+    function normalizeText(text) {
+      return String(text || "")
+        .replace(/\uFEFF/g, "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .replace(/[ \t]+/g, " ")
+        .replace(/\n+/g, " ")
+        .trim();
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function updateBanner(message, kind) {
+      els.statusBanner.className = "status-banner";
+      els.statusBanner.classList.add(kind === "good" ? "status-good" : kind === "bad" ? "status-bad" : "status-warn");
+      els.statusBanner.textContent = message;
+    }
+
+    async function readFileText(file) {
+      return await file.text();
+    }
+
+    function splitTxtDialogueSegments(text) {
+      const normalized = String(text || "").trim();
+      if (!normalized) return [normalized];
+
+      const bySpeaker = normalized
+        .split(/\s*\/\s*(?=[^\/]{0,120}[A-Za-z\u4e00-\u9fa5][\sA-Za-z\u4e00-\u9fa5（）()]*【)/g)
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      if (bySpeaker.length > 1) {
+        return bySpeaker.map(part => {
+          const bracketMatch = part.match(/^[\s\S]*[】\]]\s*[：:]\s*(.+)$/);
+          if (bracketMatch) return bracketMatch[1].trim();
+          const colonMatch = part.match(/^[^：:]{1,120}[：:]\s*(.+)$/);
+          return colonMatch ? colonMatch[1].trim() : part;
+        });
+      }
+
+      const byDash = normalized
+        .split(/\s*\/\s*(?=-)/g)
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      if (byDash.length > 1) return byDash;
+      return [normalized];
+    }
+
+    function parseSrt(content) {
+      const normalized = String(content || "").replace(/\uFEFF/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+      if (!normalized) return [];
+
+      const blocks = normalized.split(/\n{2,}/);
+      const entries = [];
+
+      for (const block of blocks) {
+        const lines = block.split("\n").map(line => line.trim()).filter(Boolean);
+        if (lines.length < 3) continue;
+
+        const textLines = lines.slice(2);
+        const shouldSplitDialogue = textLines.length > 1 && textLines.every(line => line.startsWith("-"));
+
+        if (shouldSplitDialogue) {
+          textLines.forEach((line, idx) => {
+            entries.push({
+              index: `${lines[0]}.${idx + 1}`,
+              time: lines[1],
+              subtitle: normalizeText(line)
+            });
+          });
+        } else {
+          entries.push({
+            index: lines[0],
+            time: lines[1],
+            subtitle: normalizeText(textLines.join(" "))
+          });
+        }
+      }
+
+      return entries;
+    }
+
+    function parseTxtTranscript(content) {
+      const normalized = String(content || "").replace(/\uFEFF/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      const lines = normalized.split("\n");
+      const entries = [];
+      const lineRegex = /^(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}\s+-->\s+\d{2}:\d{2}:\d{2},\d{3})\s+(.+)$/;
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        const match = line.match(lineRegex);
+        if (!match) continue;
+
+        const rest = match[3].trim();
+        let subtitleText = rest;
+
+        const bracketMatch = rest.match(/^[\s\S]*[】\]]\s*[：:]\s*(.+)$/);
+        if (bracketMatch) {
+          subtitleText = bracketMatch[1];
+        } else {
+          const colonMatch = rest.match(/^[^：:]{1,120}[：:]\s*(.+)$/);
+          if (colonMatch) subtitleText = colonMatch[1];
+        }
+
+        const segments = splitTxtDialogueSegments(subtitleText);
+        segments.forEach((segment, idx) => {
+          entries.push({
+            index: segments.length > 1 ? `${match[1]}.${idx + 1}` : match[1],
+            time: match[2],
+            subtitle: normalizeText(segment)
+          });
+        });
+      }
+
+      if (!entries.length) {
+        throw new Error("没有解析到可用于对比的字幕时间轴行。");
+      }
+
+      return entries;
+    }
+
+    function normalizeForOcrCheck(text) {
+      return String(text || "")
+        .toLowerCase()
+        .replace(/[|]/g, "l")
+        .replace(/[1li]/g, "l")
+        .replace(/[0o]/g, "o")
+        .replace(/5/g, "s")
+        .replace(/2/g, "z")
+        .replace(/8/g, "b")
+        .replace(/rn/g, "m")
+        .replace(/vv/g, "w")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function isLikelyOcrConfusion(a, b) {
+      if (!a || !b || a === b) return false;
+      return normalizeForOcrCheck(a) === normalizeForOcrCheck(b);
+    }
+
+    function getPairScore(srt, txt) {
+      if (!srt || !txt) return -3;
+      let score = -6;
+      if (srt.subtitle === txt.subtitle) score += 10;
+      else if (isLikelyOcrConfusion(srt.subtitle, txt.subtitle)) score += 8;
+      if (srt.time === txt.time) score += 8;
+      return score;
+    }
+
+    function alignEntries(srtEntries, txtEntries) {
+      const m = srtEntries.length;
+      const n = txtEntries.length;
+      const gapPenalty = -3;
+      const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+      const path = Array.from({ length: m + 1 }, () => Array(n + 1).fill(null));
+
+      for (let i = 1; i <= m; i += 1) {
+        dp[i][0] = dp[i - 1][0] + gapPenalty;
+        path[i][0] = "up";
+      }
+      for (let j = 1; j <= n; j += 1) {
+        dp[0][j] = dp[0][j - 1] + gapPenalty;
+        path[0][j] = "left";
+      }
+
+      for (let i = 1; i <= m; i += 1) {
+        for (let j = 1; j <= n; j += 1) {
+          const diag = dp[i - 1][j - 1] + getPairScore(srtEntries[i - 1], txtEntries[j - 1]);
+          const up = dp[i - 1][j] + gapPenalty;
+          const left = dp[i][j - 1] + gapPenalty;
+          const best = Math.max(diag, up, left);
+          dp[i][j] = best;
+
+          if (best === up) path[i][j] = "up";
+          else if (best === left) path[i][j] = "left";
+          else path[i][j] = "diag";
+        }
+      }
+
+      const aligned = [];
+      let i = m;
+      let j = n;
+
+      while (i > 0 || j > 0) {
+        const move = path[i][j];
+        if (move === "diag") {
+          aligned.push({ srt: srtEntries[i - 1], txt: txtEntries[j - 1] });
+          i -= 1;
+          j -= 1;
+        } else if (move === "up") {
+          aligned.push({ srt: srtEntries[i - 1], txt: null });
+          i -= 1;
+        } else {
+          aligned.push({ srt: null, txt: txtEntries[j - 1] });
+          j -= 1;
+        }
+      }
+
+      return aligned.reverse();
+    }
+
+    function buildDiffs(srtEntries, txtEntries) {
+      const aligned = alignEntries(srtEntries, txtEntries);
+      const diffs = [];
+      const rows = [];
+      let matches = 0;
+      let rowCounter = 1;
+
+      for (const pair of aligned) {
+        const srt = pair.srt;
+        const txt = pair.txt;
+        const seq = String(rowCounter++);
+        let types = [];
+
+        if (!srt || !txt) {
+          const row = {
+            seq,
+            types: [!srt ? "SRT 条目缺失" : "TXT 条目缺失"],
+            srt,
+            txt
+          };
+          diffs.push(row);
+          rows.push(row);
+          continue;
+        }
+
+        if (srt.time !== txt.time) types.push("时间轴不一致");
+        if (srt.subtitle !== txt.subtitle) {
+          types.push("字幕不一致");
+          if (isLikelyOcrConfusion(srt.subtitle, txt.subtitle)) types.push("疑似 OCR 混淆");
+        }
+
+        const row = { seq, types, srt, txt };
+        rows.push(row);
+        if (types.length === 0) matches += 1;
+        else diffs.push(row);
+      }
+
+      return { diffs, rows, matches };
+    }
+
+    function basename(filename) {
+      return filename.replace(/\.[^.]+$/, "");
+    }
+
+    function episodeAnchorId(name, prefix) {
+      return `${prefix}-${String(name).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+    }
+
+    function sortEpisodeNames(values) {
+      return [...values].sort((a, b) => {
+        const aNum = Number(a);
+        const bNum = Number(b);
+        if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
+        return a.localeCompare(b, "zh-CN");
+      });
+    }
+
+    function sortFiles(files) {
+      return [...files].sort((a, b) => {
+        const aName = basename(a.name);
+        const bName = basename(b.name);
+        const aNum = Number(aName);
+        const bNum = Number(bName);
+        if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
+        return aName.localeCompare(bName, "zh-CN");
+      });
+    }
+
+    function groupDiffsByEpisode(diffs) {
+      const grouped = new Map();
+      for (const diff of diffs) {
+        const episodeName = diff.episode || "未分组";
+        if (!grouped.has(episodeName)) grouped.set(episodeName, []);
+        grouped.get(episodeName).push(diff);
+      }
+      return Array.from(grouped.entries());
+    }
+
+    function renderDiffs(diffs) {
+      if (!diffs.length) {
+        els.diffList.innerHTML = `
+          <div class="diff-item">
+            <h4>没有发现差异</h4>
+            <div class="pair"><div class="k">结果</div><div class="v">所有已配对文件在时间轴和字幕正文上完全一致。</div></div>
+          </div>
+        `;
+        return;
+      }
+
+      const groups = groupDiffsByEpisode(diffs);
+      els.diffList.innerHTML = groups.map(([episodeName, rows]) => {
+        const diffId = episodeAnchorId(episodeName, "diff");
+        const episodeId = episodeAnchorId(episodeName, "episode");
+        const body = rows.map(row => `
+          <tr class="row-bad">
+            <td>${escapeHtml(row.rowLabel ?? row.seq ?? "-")}</td>
+            <td>${escapeHtml(row.srt?.index ?? "缺失")}</td>
+            <td>${escapeHtml(row.srt?.time ?? "缺失")}</td>
+            <td>${escapeHtml(row.srt?.subtitle ?? "缺失")}</td>
+            <td>${escapeHtml(row.txt?.index ?? "缺失")}</td>
+            <td>${escapeHtml(row.txt?.time ?? "缺失")}</td>
+            <td>${escapeHtml(row.txt?.subtitle ?? "缺失")}</td>
+            <td><span class="status-bad-text">${escapeHtml((row.types || []).join("、"))}</span></td>
+          </tr>
+        `).join("");
+
+        return `
+          <div class="diff-item" id="${escapeHtml(diffId)}">
+            <h4>${escapeHtml(episodeName)} <span class="diff-tag">差异 ${escapeHtml(String(rows.length))} 条</span><a class="jump-link" href="#${escapeHtml(episodeId)}">跳到本集明细</a></h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>差异行</th>
+                    <th>SRT 序号</th>
+                    <th>SRT 时间轴</th>
+                    <th>SRT 字幕</th>
+                    <th>TXT 序号</th>
+                    <th>TXT 时间轴</th>
+                    <th>TXT 字幕</th>
+                    <th>差异说明</th>
+                  </tr>
+                </thead>
+                <tbody>${body}</tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderEpisodeResults(results) {
+      if (!results.length) {
+        els.episodeList.innerHTML = `
+          <div class="diff-item">
+            <h4>还没有结果</h4>
+            <div class="pair"><div class="k">说明</div><div class="v">对比完成后，这里会逐集显示每一句的对齐结果。</div></div>
+          </div>
+        `;
+        return;
+      }
+
+      els.episodeList.innerHTML = results.map(item => {
+        const episodeId = episodeAnchorId(item.name, "episode");
+        const diffId = episodeAnchorId(item.name, "diff");
+        const tags = [`<span class="diff-tag">${escapeHtml(item.statusText)}</span>`];
+        if (item.totalDiffs > 0) tags.push(`<span class="diff-tag">差异 ${escapeHtml(String(item.totalDiffs))} 条</span>`);
+
+        const body = item.rows.map(row => {
+          const ok = row.types.length === 0;
+          return `
+            <tr class="${ok ? "row-ok" : "row-bad"}">
+              <td>${escapeHtml(row.seq)}</td>
+              <td>${escapeHtml(row.srt?.index ?? "缺失")}</td>
+              <td>${escapeHtml(row.srt?.time ?? "缺失")}</td>
+              <td>${escapeHtml(row.srt?.subtitle ?? "缺失")}</td>
+              <td>${escapeHtml(row.txt?.index ?? "缺失")}</td>
+              <td>${escapeHtml(row.txt?.time ?? "缺失")}</td>
+              <td>${escapeHtml(row.txt?.subtitle ?? "缺失")}</td>
+              <td>${ok ? `<span class="status-ok">对比一致</span>` : `<span class="status-bad-text">${escapeHtml(row.types.join("、"))}</span>`}</td>
+            </tr>
+          `;
+        }).join("");
+
+        return `
+          <div class="diff-item" id="${escapeHtml(episodeId)}">
+            <h4>${escapeHtml(item.name)} ${tags.join("")}<a class="jump-link" href="#${escapeHtml(diffId)}">返回总差异详情</a></h4>
+            <div class="pair"><div class="k">结论</div><div class="v">${escapeHtml(item.message)}</div></div>
+            <div class="pair"><div class="k">SRT 条数</div><div class="v">${escapeHtml(item.srtCountText)}</div></div>
+            <div class="pair"><div class="k">TXT 条数</div><div class="v">${escapeHtml(item.txtCountText)}</div></div>
+            <div class="pair"><div class="k">匹配条数</div><div class="v">${escapeHtml(item.matchCountText)}</div></div>
+            <div class="pair"><div class="k">明细摘要</div><div class="v">${escapeHtml(item.diffSummary)}</div></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>对齐行</th>
+                    <th>SRT 序号</th>
+                    <th>SRT 时间轴</th>
+                    <th>SRT 字幕</th>
+                    <th>TXT 序号</th>
+                    <th>TXT 时间轴</th>
+                    <th>TXT 字幕</th>
+                    <th>结果</th>
+                  </tr>
+                </thead>
+                <tbody>${body}</tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function updateFileMeta(target, files, suffix) {
+      if (!files.length) {
+        target.textContent = "还没有选择文件";
+        return;
+      }
+      const sorted = sortFiles(files);
+      const names = sorted.slice(0, 5).map(file => file.name).join("、");
+      const more = sorted.length > 5 ? ` 等 ${sorted.length} 个${suffix}` : "";
+      target.textContent = `已选择：${names}${more}`;
+    }
+
+    function attachDropzone(dropzone, input, key, meta, suffix) {
+      dropzone.addEventListener("dragover", event => {
+        event.preventDefault();
+        dropzone.classList.add("dragover");
+      });
+      dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+      dropzone.addEventListener("drop", event => {
+        event.preventDefault();
+        dropzone.classList.remove("dragover");
+        const files = Array.from(event.dataTransfer.files || []);
+        state[key] = files;
+        updateFileMeta(meta, files, suffix);
+      });
+      input.addEventListener("change", event => {
+        const files = Array.from(event.target.files || []);
+        state[key] = files;
+        updateFileMeta(meta, files, suffix);
+      });
+    }
+
+    function resetUI() {
+      state.srtFiles = [];
+      state.txtFiles = [];
+      els.srtFile.value = "";
+      els.txtFile.value = "";
+      updateFileMeta(els.srtMeta, [], "SRT 文件");
+      updateFileMeta(els.txtMeta, [], "TXT 文件");
+      els.srtCount.textContent = "-";
+      els.txtCount.textContent = "-";
+      els.pairCount.textContent = "-";
+      els.episodeDiffCount.textContent = "-";
+      els.diffList.innerHTML = `
+        <div class="diff-item">
+          <h4>还没有结果</h4>
+          <div class="pair"><div class="k">说明</div><div class="v">对比完成后，这里会按每一集展示所有不一致条目。</div></div>
+        </div>
+      `;
+      els.episodeList.innerHTML = `
+        <div class="diff-item">
+          <h4>还没有结果</h4>
+          <div class="pair"><div class="k">说明</div><div class="v">对比完成后，这里会逐集显示每一句的对比结果，一致也会显示。</div></div>
+        </div>
+      `;
+      updateBanner("等待上传文件。上传后点击“开始批量对比”。", "warn");
+    }
+
+    async function compareFiles() {
+      if (!state.srtFiles.length || !state.txtFiles.length) {
+        updateBanner("请先分别上传一批 SRT 和 TXT 文件。", "warn");
+        return;
+      }
+
+      try {
+        updateBanner("正在解析并批量对比，请稍等。", "warn");
+
+        const srtMap = new Map(state.srtFiles.map(file => [basename(file.name), file]));
+        const txtMap = new Map(state.txtFiles.map(file => [basename(file.name), file]));
+        const episodeNames = sortEpisodeNames(new Set([...srtMap.keys(), ...txtMap.keys()]));
+
+        let pairCount = 0;
+        let episodeDiffCount = 0;
+        const totalDiffs = [];
+        const episodeResults = [];
+
+        for (const name of episodeNames) {
+          const srtFile = srtMap.get(name);
+          const txtFile = txtMap.get(name);
+
+          if (!srtFile || !txtFile) {
+            episodeDiffCount += 1;
+            const missingRow = {
+              seq: "1",
+              rowLabel: "-",
+              types: [!srtFile ? "SRT 条目缺失" : "TXT 条目缺失"],
+              srt: srtFile ? { index: srtFile.name, time: "-", subtitle: "存在该文件。" } : null,
+              txt: txtFile ? { index: txtFile.name, time: "-", subtitle: "存在该文件。" } : null
+            };
+            totalDiffs.push({ ...missingRow, episode: name });
+            episodeResults.push({
+              name,
+              statusText: "未配对",
+              totalDiffs: 1,
+              message: !srtFile ? "缺少同名 SRT 文件。" : "缺少同名 TXT 文件。",
+              srtCountText: srtFile ? "存在文件，未解析" : "缺失",
+              txtCountText: txtFile ? "存在文件，未解析" : "缺失",
+              matchCountText: "0",
+              rows: [missingRow],
+              diffSummary: !srtFile ? "没有找到可配对的 SRT。" : "没有找到可配对的 TXT。"
+            });
+            continue;
+          }
+
+          pairCount += 1;
+          const [srtText, txtText] = await Promise.all([readFileText(srtFile), readFileText(txtFile)]);
+          const srtEntries = parseSrt(srtText);
+          const txtEntries = parseTxtTranscript(txtText);
+          const result = buildDiffs(srtEntries, txtEntries);
+
+          if (result.diffs.length > 0) {
+            episodeDiffCount += 1;
+            result.diffs.forEach(diff => {
+              totalDiffs.push({
+                ...diff,
+                episode: name,
+                rowLabel: diff.seq
+              });
+            });
+          }
+
+          episodeResults.push({
+            name,
+            statusText: result.diffs.length === 0 ? "完全一致" : "存在差异",
+            totalDiffs: result.diffs.length,
+            message: result.diffs.length === 0
+              ? "两份文件在时间轴和字幕正文上完全一致。"
+              : `发现 ${result.diffs.length} 处差异。`,
+            srtCountText: String(srtEntries.length),
+            txtCountText: String(txtEntries.length),
+            matchCountText: String(result.matches),
+            rows: result.rows,
+            diffSummary: result.diffs.length === 0
+              ? "本集没有发现差异。"
+              : result.diffs.map(diff => `第 ${diff.seq} 条：${diff.types.join("、")}`).join("；")
+          });
+        }
+
+        els.srtCount.textContent = String(state.srtFiles.length);
+        els.txtCount.textContent = String(state.txtFiles.length);
+        els.pairCount.textContent = String(pairCount);
+        els.episodeDiffCount.textContent = String(episodeDiffCount);
+
+        renderDiffs(totalDiffs);
+        renderEpisodeResults(episodeResults);
+
+        if (episodeDiffCount === 0 && pairCount === episodeNames.length) {
+          updateBanner("批量对比完成，所有已配对文件在时间轴和字幕正文上完全一致。", "good");
+        } else {
+          updateBanner(`批量对比完成，共配对 ${pairCount} 集，其中 ${episodeDiffCount} 集存在差异或未配对。`, "bad");
+        }
+      } catch (error) {
+        updateBanner(`解析失败：${error.message}`, "bad");
+        els.diffList.innerHTML = `
+          <div class="diff-item">
+            <h4>解析失败</h4>
+            <div class="pair"><div class="k">原因</div><div class="v">${escapeHtml(error.message)}</div></div>
+          </div>
+        `;
+        els.episodeList.innerHTML = `
+          <div class="diff-item">
+            <h4>解析失败</h4>
+            <div class="pair"><div class="k">原因</div><div class="v">${escapeHtml(error.message)}</div></div>
+          </div>
+        `;
+      }
+    }
+
+    attachDropzone(els.srtDropzone, els.srtFile, "srtFiles", els.srtMeta, "SRT 文件");
+    attachDropzone(els.txtDropzone, els.txtFile, "txtFiles", els.txtMeta, "TXT 文件");
+    els.compareBtn.addEventListener("click", compareFiles);
+    els.resetBtn.addEventListener("click", resetUI);
+  </script>
+</body>
+</html>
