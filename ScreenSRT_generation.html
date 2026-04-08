@@ -16,6 +16,8 @@
       --good: #4cc38a;
       --warn: #ffbf66;
       --bad: #ff7d7d;
+      --tab-inactive: #1a2345;
+      --tab-active: #7aa2ff;
     }
     * { box-sizing: border-box; }
     body {
@@ -27,7 +29,7 @@
     .wrap { max-width: 1400px; margin: 0 auto; padding: 24px; }
     h1 { margin: 0 0 8px; font-size: 30px; }
     .subtitle { color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
-    .grid { display: grid; grid-template-columns: 400px 1fr; gap: 18px; }
+    .grid { display: grid; grid-template-columns: 420px 1fr; gap: 18px; }
     .card {
       background: rgba(18,25,51,.95);
       border: 1px solid var(--line);
@@ -49,7 +51,7 @@
       font: inherit;
     }
     select[multiple] {
-      min-height: 160px;
+      min-height: 120px;
       padding: 8px;
     }
     select[multiple]:focus, select:focus {
@@ -80,8 +82,13 @@
       color: var(--accent);
     }
     button:disabled { opacity: .5; cursor: not-allowed; }
+    button.active {
+      background: var(--accent);
+      color: #08101e;
+    }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     .note { color: var(--muted); font-size: 12px; line-height: 1.6; }
     .stats { display: flex; flex-wrap: wrap; gap: 10px; }
     .pill {
@@ -151,11 +158,6 @@
       color: var(--muted);
       margin: 12px 0 8px;
     }
-    .split {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
     .fileList {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -169,9 +171,79 @@
     }
     .hint { color: var(--warn); font-size: 12px; margin-top: 4px; }
     .info { color: var(--accent); font-size: 12px; margin-top: 4px; }
+    .success { color: var(--good); font-size: 12px; margin-top: 4px; }
+    .error { color: var(--bad); font-size: 12px; margin-top: 4px; }
+    
+    /* Tab 样式 */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--tab-inactive);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .tab:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .tab.active {
+      background: var(--tab-active);
+      color: #08101e;
+      border-color: var(--tab-active);
+    }
+    
+    /* 语言上传区域 */
+    .langUploadCard {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: rgba(255,255,255,.02);
+    }
+    .langUploadCard.missing {
+      border-color: var(--bad);
+    }
+    .langUploadCard.complete {
+      border-color: var(--good);
+    }
+    .langUploadHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .langName {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .langStatus {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: var(--panel2);
+    }
+    .langStatus.complete { background: var(--good); color: #08101e; }
+    .langStatus.missing { background: var(--bad); color: #fff; }
+    
+    /* 下载按钮组 */
+    .downloadGroup {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    
     a { color: #a9c1ff; }
     @media (max-width: 1100px) {
-      .grid, .split { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -179,89 +251,151 @@
   <div class="wrap">
     <h1>画面字时间轴 / SRT 生成器</h1>
     <div class="subtitle">
-      用"基准语言 Excel + 基准语言成片 SRT"反推出真实时间轴，再批量生成目标语言 SRT。当前版本支持：<b>多集 SRT 上传</b>、<b>集数多选/全选</b>、<b>目标语言列多选</b>、<b>按集显示结果与导出</b>。
+      用"基准语言 Excel + 基准语言成片 SRT"反推出真实时间轴，再批量生成目标语言 SRT。支持多语言并行处理。
     </div>
 
     <div class="grid">
       <div>
+        <!-- 基准语言选择 -->
         <div class="card section">
-          <h2>输入文件</h2>
-          <div class="section">
-            <label>1) 基准语言画面字 Excel（如：英语/韩语/日语等画面字表）</label>
-            <input id="baseXlsx" type="file" accept=".xlsx,.xls" />
-            <div id="baseXlsxName" class="fileName"></div>
-          </div>
-          
-          <div class="section">
-            <label>基准语言列（用于匹配 SRT 时间轴）</label>
-            <select id="baseColumnSelect">
-              <option disabled>请先上传基准 Excel</option>
-            </select>
-            <div id="baseColumnHint" class="info">支持任意语言：英语、韩语、日语、中文等</div>
-          </div>
+          <h2>1. 选择基准语言</h2>
+          <label>基准语言（用于匹配 SRT 时间轴）</label>
+          <select id="baseLangSelect">
+            <option value="">请选择基准语言...</option>
+            <option value="EN">英语 (EN)</option>
+            <option value="TH">泰语 (TH)</option>
+            <option value="KO">韩语 (KO)</option>
+            <option value="JA">日语 (JA)</option>
+            <option value="PT">葡语 (PT)</option>
+            <option value="FR">法语 (FR)</option>
+            <option value="ES">西语 (ES)</option>
+            <option value="DE">德语 (DE)</option>
+            <option value="IT">意语 (IT)</option>
+            <option value="RU">俄语 (RU)</option>
+            <option value="ID">印尼语 (ID)</option>
+            <option value="TR">土耳其语 (TR)</option>
+            <option value="AR">阿拉伯语 (AR)</option>
+            <option value="ZH-TW">繁中 (ZH-TW)</option>
+            <option value="ZH-CN">简中 (ZH-CN)</option>
+            <option value="OTHER">其他</option>
+          </select>
+          <div id="baseLangHint" class="hint">请先选择基准语言</div>
+        </div>
 
+        <!-- 基准文件上传 -->
+        <div class="card section">
+          <h2>2. 上传基准文件</h2>
           <div class="section">
-            <label>2) 基准语言成片 SRT（支持多集上传，例如：1.srt / 2.srt / 03.srt）</label>
-            <input id="baseSrt" type="file" accept=".srt" multiple />
+            <label>基准语言画面字 Excel</label>
+            <input id="baseXlsx" type="file" accept=".xlsx,.xls" disabled />
+            <div id="baseXlsxName" class="fileName"></div>
+            <div id="baseColumnInfo" class="info"></div>
+          </div>
+          <div class="section">
+            <label>基准语言成片 SRT（支持多集）</label>
+            <input id="baseSrt" type="file" accept=".srt" multiple disabled />
             <div id="baseSrtName" class="fileName"></div>
             <div id="baseSrtList" class="fileList">暂无文件。</div>
           </div>
+        </div>
 
-          <div class="section">
-            <label>3) 目标语言画面字 Excel（如：JA/EN/KO-术语表&画面字.xlsx）</label>
-            <input id="targetXlsx" type="file" accept=".xlsx,.xls" />
-            <div id="targetXlsxName" class="fileName"></div>
+        <!-- 目标语言选择 -->
+        <div class="card section">
+          <h2>3. 选择目标语言（可多选）</h2>
+          <label>选择需要生成的目标语言（Ctrl/Cmd+点击多选）</label>
+          <select id="targetLangSelect" multiple disabled>
+            <option value="EN">英语 (EN)</option>
+            <option value="TH">泰语 (TH)</option>
+            <option value="KO">韩语 (KO)</option>
+            <option value="JA">日语 (JA)</option>
+            <option value="PT">葡语 (PT)</option>
+            <option value="FR">法语 (FR)</option>
+            <option value="ES">西语 (ES)</option>
+            <option value="DE">德语 (DE)</option>
+            <option value="IT">意语 (IT)</option>
+            <option value="RU">俄语 (RU)</option>
+            <option value="ID">印尼语 (ID)</option>
+            <option value="TR">土耳其语 (TR)</option>
+            <option value="AR">阿拉伯语 (AR)</option>
+            <option value="ZH-TW">繁中 (ZH-TW)</option>
+            <option value="ZH-CN">简中 (ZH-CN)</option>
+            <option value="OTHER">其他</option>
+          </select>
+          <div class="row" style="margin-top:10px;">
+            <button id="selectAllTargetBtn" type="button" class="ghost" disabled>全选</button>
+            <button id="clearTargetBtn" type="button" class="ghost" disabled>清空</button>
           </div>
+          <div id="targetLangHint" class="hint"></div>
+        </div>
 
-          <div class="section">
-            <label>集数（支持多选，Ctrl/Cmd+点击可多选）</label>
-            <div class="row3" style="margin-bottom:10px;">
-              <button id="selectAllEpisodesBtn" type="button" class="ghost">全选集数</button>
-              <button id="clearEpisodesBtn" type="button" class="ghost">清空集数</button>
-              <button id="syncEpisodesBtn" type="button" class="ghost">按已上传 SRT 选中</button>
-            </div>
-            <select id="episodeSelect" multiple>
-              <option disabled>请先上传基准 Excel 和目标 Excel</option>
-            </select>
-            <div id="episodeHint" class="hint"></div>
-          </div>
-
-          <div class="section">
-            <label>目标语言列（支持多选）</label>
-            <div class="row">
-              <button id="selectAllTargetColsBtn" type="button" class="ghost">全选语言列</button>
-              <button id="clearTargetColsBtn" type="button" class="ghost">清空语言列</button>
-            </div>
-            <select id="targetColumnSelect" multiple>
-              <option disabled>请先上传目标 Excel</option>
-            </select>
-          </div>
-
-          <div class="section row">
-            <button id="generateBtn">生成 SRT</button>
-            <button id="downloadBtn" class="secondary" disabled>下载结果</button>
-          </div>
-          <div class="note">
-            匹配规则：先用基准 Excel 的翻译文本去精确匹配对应集数的基准 SRT；若同一文本重复，会按出现顺序一一对应。当前版本未做模糊匹配，适合你当前这类结构统一的项目。
+        <!-- 目标语言文件上传 -->
+        <div class="card section">
+          <h2>4. 上传目标语言 Excel</h2>
+          <div id="targetUploadArea">
+            <div class="info">请先选择目标语言</div>
           </div>
         </div>
 
+        <!-- 集数选择 -->
+        <div class="card section">
+          <h2>5. 选择集数</h2>
+          <div class="row3" style="margin-bottom:10px;">
+            <button id="selectAllEpisodesBtn" type="button" class="ghost">全选集数</button>
+            <button id="clearEpisodesBtn" type="button" class="ghost">清空集数</button>
+            <button id="syncEpisodesBtn" type="button" class="ghost">按SRT选中</button>
+          </div>
+          <select id="episodeSelect" multiple>
+            <option disabled>请先上传基准 Excel</option>
+          </select>
+          <div id="episodeHint" class="hint"></div>
+        </div>
+
+        <!-- 生成按钮 -->
+        <div class="card section">
+          <button id="generateBtn" disabled>生成 SRT</button>
+          <div class="note" style="margin-top:10px;">
+            匹配规则：用基准语言文本精确匹配 SRT 时间轴，再映射到各目标语言。
+          </div>
+        </div>
+
+        <!-- 状态 -->
         <div class="card">
           <h2>运行状态</h2>
           <div id="stats" class="stats"></div>
-          <div id="statusBox" class="statusBox">请先上传基准 Excel、多个/单个 SRT、目标 Excel。</div>
+          <div id="statusBox" class="statusBox">请选择基准语言并上传文件。</div>
         </div>
       </div>
 
+      <!-- 右侧结果区域 -->
       <div>
+        <!-- 匹配结果 -->
         <div class="card section">
-          <h2>匹配结果（按集显示）</h2>
+          <h2>匹配结果</h2>
+          <div id="matchTabs" class="tabs" style="display:none;">
+            <div class="tab active" data-lang="all">全部</div>
+          </div>
           <div id="previewGroups" class="tiny">暂无结果。</div>
         </div>
 
+        <!-- SRT 预览 -->
         <div class="card">
-          <h2>SRT 预览（按集 / 按目标语言列显示）</h2>
+          <h2>SRT 预览</h2>
+          <div id="srtTabs" class="tabs" style="display:none;">
+            <div class="tab active" data-lang="all">全部</div>
+          </div>
           <div id="srtGroups" class="tiny">暂无结果。</div>
+        </div>
+        
+        <!-- 下载区域 -->
+        <div class="card" id="downloadArea" style="display:none;">
+          <h2>下载 SRT</h2>
+          <div id="downloadTabs" class="tabs">
+            <div class="tab active" data-lang="all">全部打包</div>
+          </div>
+          <div class="downloadGroup">
+            <button id="downloadCurrentBtn">下载当前语言</button>
+            <button id="downloadAllBtn" class="secondary">下载全部</button>
+          </div>
         </div>
       </div>
     </div>
@@ -270,52 +404,67 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script>
+    // 语言配置
+    const LANG_NAMES = {
+      'EN': '英语', 'TH': '泰语', 'KO': '韩语', 'JA': '日语',
+      'PT': '葡语', 'FR': '法语', 'ES': '西语', 'DE': '德语',
+      'IT': '意语', 'RU': '俄语', 'ID': '印尼语', 'TR': '土耳其语',
+      'AR': '阿拉伯语', 'ZH-TW': '繁中', 'ZH-CN': '简中', 'OTHER': '其他'
+    };
+
     const state = {
+      baseLang: null,
       baseWorkbook: null,
-      targetWorkbook: null,
       baseSheetRows: [],
-      targetSheetRows: [],
+      baseTextColumn: null,
+      sourceTextColumn: null, // 原文列（中文）
       srtByEpisode: new Map(),
-      generatedGroups: [],
-      generatedFiles: [],
-      librariesLoaded: false,
-      selectedBaseColumn: null
+      targetLangs: [], // 选中的目标语言数组
+      targetWorkbooks: {}, // {lang: workbook}
+      targetSheetRows: {}, // {lang: rows}
+      generatedGroups: {}, // {lang: groups}
+      generatedFiles: {}, // {lang: files}
+      currentTab: 'all',
+      librariesLoaded: false
     };
 
     const els = {
+      baseLangSelect: document.getElementById('baseLangSelect'),
+      baseLangHint: document.getElementById('baseLangHint'),
       baseXlsx: document.getElementById('baseXlsx'),
       baseSrt: document.getElementById('baseSrt'),
-      targetXlsx: document.getElementById('targetXlsx'),
       baseXlsxName: document.getElementById('baseXlsxName'),
+      baseColumnInfo: document.getElementById('baseColumnInfo'),
       baseSrtName: document.getElementById('baseSrtName'),
-      targetXlsxName: document.getElementById('targetXlsxName'),
       baseSrtList: document.getElementById('baseSrtList'),
-      baseColumnSelect: document.getElementById('baseColumnSelect'),
-      baseColumnHint: document.getElementById('baseColumnHint'),
+      targetLangSelect: document.getElementById('targetLangSelect'),
+      targetLangHint: document.getElementById('targetLangHint'),
+      selectAllTargetBtn: document.getElementById('selectAllTargetBtn'),
+      clearTargetBtn: document.getElementById('clearTargetBtn'),
+      targetUploadArea: document.getElementById('targetUploadArea'),
       episodeSelect: document.getElementById('episodeSelect'),
-      targetColumnSelect: document.getElementById('targetColumnSelect'),
+      episodeHint: document.getElementById('episodeHint'),
       selectAllEpisodesBtn: document.getElementById('selectAllEpisodesBtn'),
       clearEpisodesBtn: document.getElementById('clearEpisodesBtn'),
       syncEpisodesBtn: document.getElementById('syncEpisodesBtn'),
-      selectAllTargetColsBtn: document.getElementById('selectAllTargetColsBtn'),
-      clearTargetColsBtn: document.getElementById('clearTargetColsBtn'),
       generateBtn: document.getElementById('generateBtn'),
-      downloadBtn: document.getElementById('downloadBtn'),
       stats: document.getElementById('stats'),
       statusBox: document.getElementById('statusBox'),
+      matchTabs: document.getElementById('matchTabs'),
       previewGroups: document.getElementById('previewGroups'),
+      srtTabs: document.getElementById('srtTabs'),
       srtGroups: document.getElementById('srtGroups'),
-      episodeHint: document.getElementById('episodeHint')
+      downloadArea: document.getElementById('downloadArea'),
+      downloadTabs: document.getElementById('downloadTabs'),
+      downloadCurrentBtn: document.getElementById('downloadCurrentBtn'),
+      downloadAllBtn: document.getElementById('downloadAllBtn')
     };
 
-    // 检查库是否加载成功
+    // 检查库
     function checkLibraries() {
       if (typeof XLSX === 'undefined') {
-        els.statusBox.textContent = '错误：未成功加载 SheetJS (XLSX) 库。请检查网络连接或尝试使用本地版本。';
+        els.statusBox.textContent = '错误：未成功加载 SheetJS (XLSX) 库。';
         return false;
-      }
-      if (typeof JSZip === 'undefined') {
-        els.statusBox.textContent = '警告：JSZip 未加载，多文件打包下载将不可用，但单文件下载仍可使用。';
       }
       state.librariesLoaded = true;
       return true;
@@ -378,60 +527,84 @@
       return XLSX.utils.sheet_to_json(ws, { defval: '' });
     }
 
-    // 智能推断基准语言列，支持任意语言
-    function inferBaseTextColumn(rows) {
-      if (!rows.length) throw new Error('基准 Excel 的画面字 sheet 没有数据。');
+    // 智能识别列
+    function detectColumns(rows, baseLangCode) {
+      if (!rows.length) return null;
       const keys = Object.keys(rows[0]);
       
-      // 排除常见的非语言列
-      const excludeCols = ['集数', '时间', '文字', '截图', '备注', '序号', 'Index', 'No'];
-      const candidateCols = keys.filter(k => !excludeCols.includes(k) && !excludeCols.some(ex => k.includes(ex)));
+      // 固定排除列
+      const excludeCols = ['集数', '时间', '截图', '备注', '序号', 'Index', 'No', 'Episode', 'Time'];
       
-      if (candidateCols.length === 0) {
-        throw new Error('未找到可用的基准语言列，请检查 Excel 列名。');
+      // 原文列关键词（中文）
+      const sourceKeywords = ['内容', '原文', '文字', '中文', '简体', '繁体', 'Source', 'Text', 'Content'];
+      
+      // 基准语言列关键词
+      const baseLangKeywords = {
+        'EN': ['英语', '英文', 'EN', 'English', 'ENG'],
+        'TH': ['泰语', '泰文', 'TH', 'Thai'],
+        'KO': ['韩语', '韩文', 'KR', 'KO', 'Korean'],
+        'JA': ['日语', '日文', 'JA', 'JP', 'Japanese'],
+        'PT': ['葡语', '葡萄牙语', 'PT', 'Portuguese'],
+        'FR': ['法语', '法文', 'FR', 'French'],
+        'ES': ['西语', '西班牙语', 'ES', 'Spanish'],
+        'DE': ['德语', '德文', 'DE', 'German'],
+        'IT': ['意语', '意大利语', 'IT', 'Italian'],
+        'RU': ['俄语', '俄文', 'RU', 'Russian'],
+        'ID': ['印尼语', '印尼文', 'ID', 'Indonesian'],
+        'TR': ['土耳其语', 'TR', 'Turkish'],
+        'AR': ['阿拉伯语', 'AR', 'Arabic'],
+        'ZH-TW': ['繁中', '繁体', '繁体中文', 'TW', 'ZH-TW'],
+        'ZH-CN': ['简中', '简体', '简体中文', 'CN', 'ZH-CN'],
+        'OTHER': ['其他', 'OTHER']
+      };
+      
+      // 找原文列（排除固定列后，匹配中文关键词）
+      let sourceCol = null;
+      const contentCandidates = keys.filter(k => 
+        !excludeCols.some(ex => k.includes(ex) || k === ex)
+      );
+      
+      for (const kw of sourceKeywords) {
+        const found = contentCandidates.find(k => k.toLowerCase().includes(kw.toLowerCase()));
+        if (found) {
+          sourceCol = found;
+          break;
+        }
+      }
+      // 如果没找到，默认第3列（如果存在且未被排除）
+      if (!sourceCol && contentCandidates.length > 0) {
+        sourceCol = contentCandidates[0];
       }
       
-      // 如果只有一个候选列，直接返回
-      if (candidateCols.length === 1) return candidateCols[0];
+      // 找基准语言列
+      let baseCol = null;
+      const baseKeywords = baseLangKeywords[baseLangCode] || [baseLangCode];
       
-      // 优先匹配常见语言标识（按优先级排序）
-      const priorityPatterns = [
-        ['英语翻译', '英文翻译', 'EN', 'English', 'ENG', '英语'],
-        ['韩语翻译', '韩文翻译', 'KR', 'KO', 'Korean', '韩语', '韩文'],
-        ['日语翻译', '日文翻译', 'JA', 'JP', 'Japanese', '日语', '日文'],
-        ['中文翻译', '简体', '繁体', 'CN', 'ZH', 'Chinese', '中文'],
-        ['法语', 'FR', 'French'],
-        ['德语', 'DE', 'German'],
-        ['西班牙语', 'ES', 'Spanish'],
-        ['俄语', 'RU', 'Russian'],
-        ['葡萄牙语', 'PT', 'Portuguese'],
-        ['意大利语', 'IT', 'Italian']
-      ];
-      
-      for (const patterns of priorityPatterns) {
-        for (const pattern of patterns) {
-          const exact = candidateCols.find(k => k.toLowerCase() === pattern.toLowerCase());
-          if (exact) return exact;
+      for (const kw of baseKeywords) {
+        // 完全匹配优先
+        const exact = keys.find(k => k.toLowerCase() === kw.toLowerCase());
+        if (exact) {
+          baseCol = exact;
+          break;
         }
-        for (const pattern of patterns) {
-          const fuzzy = candidateCols.find(k => k.toLowerCase().includes(pattern.toLowerCase()));
-          if (fuzzy) return fuzzy;
+      }
+      if (!baseCol) {
+        for (const kw of baseKeywords) {
+          // 包含匹配
+          const fuzzy = keys.find(k => k.toLowerCase().includes(kw.toLowerCase()));
+          if (fuzzy) {
+            baseCol = fuzzy;
+            break;
+          }
         }
       }
       
-      // 如果没有匹配到，返回第一个候选列
-      return candidateCols[0];
+      return { sourceCol, baseCol, allCols: keys };
     }
 
-    function inferTargetTextColumns(rows) {
-      if (!rows.length) return [];
-      const keys = Object.keys(rows[0]);
-      return keys.filter(k => !['集数', '时间', '文字', '截图', '备注', '序号', 'Index', 'No'].some(ex => k.includes(ex) || k === ex));
-    }
-
-    function getEpisodeList(baseRows, targetRows) {
+    function getEpisodeList(rows) {
       const set = new Set();
-      [...baseRows, ...targetRows].forEach(r => {
+      rows.forEach(r => {
         const ep = safeCell(r['集数']);
         if (ep) set.add(ep);
       });
@@ -450,23 +623,6 @@
         map.get(key).push({ ...entry, _order: idx });
       });
       return map;
-    }
-
-    function pairRows(baseRows, targetRows, baseTextColumn, targetTextColumn) {
-      const results = [];
-      const maxLen = Math.max(baseRows.length, targetRows.length);
-      for (let i = 0; i < maxLen; i++) {
-        const base = baseRows[i] || {};
-        const target = targetRows[i] || {};
-        results.push({
-          rowNumber: i + 1,
-          sourceText: safeCell(base['文字']) || safeCell(target['文字']),
-          baseText: safeCell(base[baseTextColumn]),
-          targetText: safeCell(target[targetTextColumn]),
-          baseTime: safeCell(base['时间']) || safeCell(target['时间'])
-        });
-      }
-      return results;
     }
 
     function formatSrt(rows) {
@@ -490,15 +646,6 @@
       Array.from(selectEl.options).forEach(opt => {
         if (!opt.disabled) opt.selected = selected;
       });
-      selectEl.dispatchEvent(new Event('change'));
-    }
-
-    function setSelectedByValues(selectEl, values) {
-      const set = new Set(values);
-      Array.from(selectEl.options).forEach(opt => {
-        if (!opt.disabled) opt.selected = set.has(opt.value);
-      });
-      selectEl.dispatchEvent(new Event('change'));
     }
 
     function episodeToNumericKey(ep) {
@@ -520,210 +667,535 @@
       return await file.text();
     }
 
-    function refreshBaseColumnSelector() {
-      if (!state.baseWorkbook || state.baseSheetRows.length === 0) {
-        els.baseColumnSelect.innerHTML = '<option disabled>请先上传基准 Excel</option>';
+    // 更新目标语言上传区域
+    function updateTargetUploadArea() {
+      const selectedLangs = getSelectedValues(els.targetLangSelect);
+      state.targetLangs = selectedLangs;
+      
+      if (selectedLangs.length === 0) {
+        els.targetUploadArea.innerHTML = '<div class="info">请先选择目标语言</div>';
+        els.targetLangHint.textContent = '';
         return;
       }
       
-      const keys = Object.keys(state.baseSheetRows[0]);
-      const excludeCols = ['集数', '时间', '文字', '截图', '备注', '序号', 'Index', 'No'];
-      const candidateCols = keys.filter(k => !excludeCols.includes(k) && !excludeCols.some(ex => k.includes(ex)));
+      els.targetLangHint.textContent = `已选择 ${selectedLangs.length} 个目标语言`;
       
-      if (candidateCols.length === 0) {
-        els.baseColumnSelect.innerHTML = '<option disabled>未检测到可用列</option>';
-        return;
-      }
+      // 为每个语言创建上传区域
+      els.targetUploadArea.innerHTML = selectedLangs.map(lang => {
+        const langName = LANG_NAMES[lang];
+        const hasFile = state.targetWorkbooks[lang] ? 'complete' : 'missing';
+        const statusText = state.targetWorkbooks[lang] ? '已上传' : '未上传';
+        
+        return `
+          <div class="langUploadCard ${hasFile}" id="upload-${lang}">
+            <div class="langUploadHeader">
+              <span class="langName">${langName} (${lang})</span>
+              <span class="langStatus ${hasFile}">${statusText}</span>
+            </div>
+            <input type="file" accept=".xlsx,.xls" data-lang="${lang}" class="target-file-input" 
+              ${!state.baseLang ? 'disabled' : ''}>
+            <div class="fileName" id="filename-${lang}"></div>
+          </div>
+        `;
+      }).join('');
       
-      // 智能选择默认列
-      let defaultCol = candidateCols[0];
-      try {
-        defaultCol = inferBaseTextColumn(state.baseSheetRows);
-      } catch (e) {
-        // 使用第一个候选列
-      }
-      
-      els.baseColumnSelect.innerHTML = candidateCols.map(col => 
-        `<option value="${escapeHtml(col)}" ${col === defaultCol ? 'selected' : ''}>${escapeHtml(col)}</option>`
-      ).join('');
-      
-      state.selectedBaseColumn = defaultCol;
-      els.baseColumnHint.textContent = `已自动选择"${defaultCol}"作为基准语言列，如需更改请手动选择`;
+      // 绑定上传事件
+      document.querySelectorAll('.target-file-input').forEach(input => {
+        input.addEventListener('change', async (e) => {
+          const lang = e.target.dataset.lang;
+          const file = e.target.files?.[0];
+          if (!file) return;
+          
+          try {
+            const buffer = await readFileAsArrayBuffer(file);
+            const workbook = arrayBufferToWorkbook(buffer);
+            const rows = workbookToJson(workbook, '画面字');
+            
+            state.targetWorkbooks[lang] = workbook;
+            state.targetSheetRows[lang] = rows;
+            
+            // 更新UI
+            document.getElementById(`filename-${lang}`).textContent = `已选择：${file.name}，共 ${rows.length} 行`;
+            const card = document.getElementById(`upload-${lang}`);
+            card.classList.remove('missing');
+            card.classList.add('complete');
+            card.querySelector('.langStatus').textContent = '已上传';
+            card.querySelector('.langStatus').classList.remove('missing');
+            card.querySelector('.langStatus').classList.add('complete');
+            
+            // 检查是否可以生成
+            checkCanGenerate();
+            
+          } catch (err) {
+            alert(`${LANG_NAMES[lang]} Excel 加载失败：${err.message}`);
+          }
+        });
+      });
     }
 
-    function refreshSelectors() {
-      // 刷新基准语言列选择器
-      refreshBaseColumnSelector();
+    // 检查是否可以生成
+    function checkCanGenerate() {
+      const hasBase = state.baseWorkbook && state.baseTextColumn;
+      const hasSrt = state.srtByEpisode.size > 0;
+      const allTargetsUploaded = state.targetLangs.every(lang => state.targetWorkbooks[lang]);
       
-      // 刷新目标语言列选择器
-      if (state.targetWorkbook) {
-        const targetColumns = inferTargetTextColumns(state.targetSheetRows);
-        if (targetColumns.length === 0) {
-          els.targetColumnSelect.innerHTML = '<option disabled>未检测到可用列</option>';
+      els.generateBtn.disabled = !(hasBase && hasSrt && allTargetsUploaded && state.targetLangs.length > 0);
+      
+      if (hasBase && hasSrt && state.targetLangs.length > 0) {
+        if (!allTargetsUploaded) {
+          const missing = state.targetLangs.filter(lang => !state.targetWorkbooks[lang]);
+          els.statusBox.textContent = `等待上传：${missing.map(l => LANG_NAMES[l]).join('、')}`;
         } else {
-          els.targetColumnSelect.innerHTML = targetColumns.map(col => 
-            `<option value="${escapeHtml(col)}">${escapeHtml(col)}</option>`
-          ).join('');
-          
-          // 默认选中 JA 列或第一列
-          const preferred = targetColumns.filter(c => /^(JA|JP|日语|日文)$/i.test(c));
-          if (preferred.length) {
-            setSelectedByValues(els.targetColumnSelect, preferred);
-          } else {
-            els.targetColumnSelect.options[0].selected = true;
-          }
+          els.statusBox.textContent = '所有文件已就绪，可以点击生成按钮。';
         }
       }
+    }
 
-      // 需要两个 Excel 都上传才能刷新集数
-      if (!state.baseWorkbook || !state.targetWorkbook) {
-        if (!state.baseWorkbook && !state.targetWorkbook) {
-          els.episodeSelect.innerHTML = '<option disabled>请先上传基准 Excel 和目标 Excel</option>';
-        } else if (!state.baseWorkbook) {
-          els.episodeSelect.innerHTML = '<option disabled>请上传基准 Excel</option>';
-        } else {
-          els.episodeSelect.innerHTML = '<option disabled>请上传目标 Excel</option>';
-        }
-        els.episodeHint.textContent = '提示：需要上传两个 Excel 文件后才能选择集数';
+    // 刷新集数选择器
+    function refreshEpisodeSelector() {
+      if (!state.baseWorkbook || state.baseSheetRows.length === 0) {
+        els.episodeSelect.innerHTML = '<option disabled>请先上传基准 Excel</option>';
         return;
       }
-
-      const episodes = getEpisodeList(state.baseSheetRows, state.targetSheetRows);
+      
+      const episodes = getEpisodeList(state.baseSheetRows);
       if (episodes.length === 0) {
-        els.episodeSelect.innerHTML = '<option disabled>未检测到集数数据，请检查 Excel 的"集数"列</option>';
+        els.episodeSelect.innerHTML = '<option disabled>未检测到集数数据</option>';
         els.episodeHint.textContent = '提示：Excel 中需要有"集数"列';
       } else {
         els.episodeSelect.innerHTML = episodes.map(ep => 
           `<option value="${escapeHtml(ep)}">${escapeHtml(ep)}</option>`
         ).join('');
-        // 默认全选
         setAllSelected(els.episodeSelect, true);
         els.episodeHint.textContent = `已加载 ${episodes.length} 个集数`;
       }
     }
 
-    function renderSrtFileList() {
-      if (!state.srtByEpisode.size) {
-        els.baseSrtList.textContent = '暂无文件。';
-        return;
+    // 生成 Tab
+    function generateTabs() {
+      const langs = ['all', ...state.targetLangs];
+      
+      // 匹配结果 Tabs
+      els.matchTabs.innerHTML = langs.map(lang => {
+        const name = lang === 'all' ? '全部' : LANG_NAMES[lang];
+        return `<div class="tab ${lang === 'all' ? 'active' : ''}" data-lang="${lang}" onclick="switchTab('${lang}')">${name}</div>`;
+      }).join('');
+      els.matchTabs.style.display = 'flex';
+      
+      // SRT 预览 Tabs
+      els.srtTabs.innerHTML = langs.map(lang => {
+        const name = lang === 'all' ? '全部' : LANG_NAMES[lang];
+        return `<div class="tab ${lang === 'all' ? 'active' : ''}" data-lang="${lang}" onclick="switchTab('${lang}')">${name}</div>`;
+      }).join('');
+      els.srtTabs.style.display = 'flex';
+      
+      // 下载 Tabs
+      els.downloadTabs.innerHTML = langs.map(lang => {
+        const name = lang === 'all' ? '全部打包' : LANG_NAMES[lang];
+        return `<div class="tab ${lang === 'all' ? 'active' : ''}" data-lang="${lang}" onclick="switchDownloadTab('${lang}')">${name}</div>`;
+      }).join('');
+      els.downloadArea.style.display = 'block';
+    }
+
+    // Tab 切换
+    window.switchTab = function(lang) {
+      state.currentTab = lang;
+      
+      // 更新所有 tab 样式
+      document.querySelectorAll('.tab').forEach(tab => {
+        if (tab.dataset.lang === lang) {
+          tab.classList.add('active');
+        } else {
+          tab.classList.remove('active');
+        }
+      });
+      
+      // 重新渲染
+      renderPreview();
+      renderSrt();
+    };
+
+    window.switchDownloadTab = function(lang) {
+      state.currentTab = lang;
+      document.querySelectorAll('#downloadTabs .tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.lang === lang);
+      });
+    };
+
+    // 渲染匹配结果
+    function renderPreview() {
+      const lang = state.currentTab;
+      
+      if (lang === 'all') {
+        // 显示所有语言
+        let html = '';
+        for (const l of state.targetLangs) {
+          const groups = state.generatedGroups[l];
+          if (groups) {
+            html += `<h3 style="color:var(--accent);margin:16px 0 8px;">${LANG_NAMES[l]}</h3>`;
+            html += renderLanguagePreview(groups, l);
+          }
+        }
+        els.previewGroups.innerHTML = html || '暂无结果。';
+      } else {
+        const groups = state.generatedGroups[lang];
+        els.previewGroups.innerHTML = groups ? renderLanguagePreview(groups, lang) : '暂无结果。';
       }
-      const items = [...state.srtByEpisode.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN', { numeric: true }))
-        .map(([episode, payload]) => `${episode} ← ${payload.fileName}（${payload.entries.length} 条）`);
-      els.baseSrtList.innerHTML = items.map(x => `<div>${escapeHtml(x)}</div>`).join('');
     }
 
-    function renderStats(summary) {
-      const items = [
-        [`已选集数 ${summary.selectedEpisodes}`, ''],
-        [`已选语言列 ${summary.selectedTargetColumns}`, ''],
-        [`已加载 SRT 集数 ${summary.availableSrtEpisodes}`, ''],
-        [`生成文件 ${summary.generatedFiles}`, ''],
-        [`成功匹配 ${summary.matchedCount} 条`, 'ok'],
-        [`未匹配 ${summary.unmatchedCount} 条`, summary.unmatchedCount ? 'warn' : 'ok']
-      ];
-      els.stats.innerHTML = items.map(([text, cls]) => `<span class="pill ${cls}">${escapeHtml(text)}</span>`).join('');
-    }
-
-    function renderStatus(lines) {
-      els.statusBox.textContent = lines.join('\n');
-    }
-
-    function renderPreviewGroups(groups) {
-      if (!groups.length) {
-        els.previewGroups.innerHTML = '暂无结果。';
-        return;
-      }
-      els.previewGroups.innerHTML = groups.map(group => {
-        const episodeHeader = `第 ${group.episode} / SRT：${group.srtLoaded ? '已加载' : '未加载'}`;
-        const subBlocks = group.outputs.map(output => `
-          <div class="subHeader">目标列：${escapeHtml(output.targetColumn)} ｜ 生成 ${output.rows.length} 条 ｜ 匹配 ${output.matchedCount} 条 ｜ 未匹配 ${output.unmatchedCount} 条</div>
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>状态</th>
-                <th>时间轴</th>
-                <th>原文</th>
-                <th>基准语言</th>
-                <th>目标语言</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${output.rows.map(r => `
-                <tr>
-                  <td>${r.seq}</td>
-                  <td>${r.status === 'matched' ? '<span class="pill ok">已匹配</span>' : '<span class="pill warn">未匹配</span>'}</td>
-                  <td>${r.start ? `${escapeHtml(r.start)}<br>${escapeHtml(r.end)}` : '<span class="bad">未取到</span>'}</td>
-                  <td>${escapeHtml(r.sourceText).replace(/\n/g, '<br>')}</td>
-                  <td>${escapeHtml(r.baseText).replace(/\n/g, '<br>')}</td>
-                  <td>${escapeHtml(r.targetText).replace(/\n/g, '<br>')}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `).join('');
+    function renderLanguagePreview(groups, lang) {
+      if (!groups || !groups.length) return '暂无结果。';
+      
+      return groups.map(group => {
+        const output = group.outputs[0]; // 每个语言只有一个输出
         return `
           <div class="groupCard">
             <div class="groupHeader">
               <div><b>${escapeHtml(group.episode)}</b></div>
-              <div class="tiny">${escapeHtml(episodeHeader)}</div>
+              <div class="tiny">SRT：${group.srtLoaded ? '已加载' : '未加载'} | 
+                匹配 ${output.matchedCount} 条 | 未匹配 ${output.unmatchedCount} 条</div>
             </div>
-            ${subBlocks}
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>状态</th>
+                  <th>时间轴</th>
+                  <th>原文（中文）</th>
+                  <th>基准语言</th>
+                  <th>目标语言 (${LANG_NAMES[lang]})</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${output.rows.map(r => `
+                  <tr>
+                    <td>${r.seq}</td>
+                    <td>${r.status === 'matched' ? '<span class="pill ok">已匹配</span>' : '<span class="pill warn">未匹配</span>'}</td>
+                    <td>${r.start ? `${escapeHtml(r.start)}<br>${escapeHtml(r.end)}` : '<span class="bad">未取到</span>'}</td>
+                    <td>${escapeHtml(r.sourceText).replace(/\n/g, '<br>')}</td>
+                    <td>${escapeHtml(r.baseText).replace(/\n/g, '<br>')}</td>
+                    <td>${escapeHtml(r.targetText).replace(/\n/g, '<br>')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
           </div>
         `;
       }).join('');
     }
 
-    function renderSrtGroups(groups) {
-      if (!groups.length) {
-        els.srtGroups.innerHTML = '暂无结果。';
-        return;
+    // 渲染 SRT
+    function renderSrt() {
+      const lang = state.currentTab;
+      
+      if (lang === 'all') {
+        let html = '';
+        for (const l of state.targetLangs) {
+          const groups = state.generatedGroups[l];
+          if (groups) {
+            html += `<h3 style="color:var(--accent);margin:16px 0 8px;">${LANG_NAMES[l]}</h3>`;
+            html += renderLanguageSrt(groups, l);
+          }
+        }
+        els.srtGroups.innerHTML = html || '暂无结果。';
+      } else {
+        const groups = state.generatedGroups[lang];
+        els.srtGroups.innerHTML = groups ? renderLanguageSrt(groups, lang) : '暂无结果。';
       }
-      els.srtGroups.innerHTML = groups.map(group => {
-        const outputs = group.outputs.map(output => `
+    }
+
+    function renderLanguageSrt(groups, lang) {
+      if (!groups || !groups.length) return '暂无结果。';
+      
+      return groups.map(group => {
+        const output = group.outputs[0];
+        return `
           <div class="groupCard">
             <div class="groupHeader">
-              <div><b>${escapeHtml(group.episode)}</b> / ${escapeHtml(output.targetColumn)}</div>
+              <div><b>${escapeHtml(group.episode)}</b> / ${LANG_NAMES[lang]}</div>
               <div class="tiny">文件名：${escapeHtml(output.fileName)}</div>
             </div>
             <div class="result mono">${escapeHtml(output.srt || '没有可导出的 SRT 内容。')}</div>
           </div>
-        `).join('');
-        return outputs;
+        `;
       }).join('');
     }
 
-    async function handleBaseXlsx(file) {
+    // 生成 SRT
+    async function generateAll() {
+      if (!state.librariesLoaded) {
+        throw new Error('必要的库未加载。');
+      }
+      
+      // 检查
+      if (!state.baseWorkbook) throw new Error('请上传基准语言 Excel。');
+      if (!state.baseTextColumn) throw new Error('未能识别基准语言列，请检查 Excel 格式。');
+      if (state.srtByEpisode.size === 0) throw new Error('请上传基准语言 SRT 文件。');
+      if (state.targetLangs.length === 0) throw new Error('请至少选择 1 个目标语言。');
+      
+      const missingLangs = state.targetLangs.filter(lang => !state.targetWorkbooks[lang]);
+      if (missingLangs.length > 0) {
+        throw new Error(`请上传以下语言的 Excel：${missingLangs.map(l => LANG_NAMES[l]).join('、')}`);
+      }
+
+      const selectedEpisodes = getSelectedValues(els.episodeSelect);
+      if (!selectedEpisodes.length) throw new Error('请至少选择 1 个集数。');
+
+      // 检查集数匹配
+      const baseEpisodes = getEpisodeList(state.baseSheetRows);
+      for (const lang of state.targetLangs) {
+        const targetRows = state.targetSheetRows[lang];
+        const targetEpisodes = getEpisodeList(targetRows);
+        
+        for (const ep of selectedEpisodes) {
+          if (!targetEpisodes.includes(ep)) {
+            throw new Error(`${LANG_NAMES[lang]} Excel 缺少第 ${ep} 集数据`);
+          }
+        }
+        
+        // 检查行数是否一致
+        for (const ep of selectedEpisodes) {
+          const baseRows = rowsByEpisode(state.baseSheetRows, ep);
+          const targetRowsEp = rowsByEpisode(targetRows, ep);
+          if (baseRows.length !== targetRowsEp.length) {
+            console.warn(`${LANG_NAMES[lang]} 第${ep}集行数不匹配：基准${baseRows.length}行 vs 目标${targetRowsEp.length}行`);
+          }
+        }
+      }
+
+      // 并行处理各语言
+      const statusLines = [
+        `基准语言：${LANG_NAMES[state.baseLang]} (${state.baseLang})`,
+        `基准文本列：${state.baseTextColumn}`,
+        `原文列：${state.sourceTextColumn || '未识别'}`,
+        `已选集数：${selectedEpisodes.join('、')}`,
+        `目标语言：${state.targetLangs.map(l => LANG_NAMES[l]).join('、')}`
+      ];
+
+      let totalMatchedAll = 0;
+      let totalUnmatchedAll = 0;
+
+      for (const lang of state.targetLangs) {
+        const groups = [];
+        const files = [];
+        let totalMatched = 0;
+        let totalUnmatched = 0;
+
+        const targetRowsAll = state.targetSheetRows[lang];
+        
+        // 找目标语言列（排除固定列和原文列）
+        const targetKeys = Object.keys(targetRowsAll[0] || {});
+        const excludeCols = ['集数', '时间', '截图', '备注', '序号', 'Index', 'No', 'Episode', 'Time', state.sourceTextColumn, state.baseTextColumn].filter(Boolean);
+        const targetColCandidates = targetKeys.filter(k => !excludeCols.some(ex => k.includes(ex) || k === ex));
+        const targetCol = targetColCandidates[0] || targetKeys.find(k => k !== '集数' && k !== '时间');
+
+        if (!targetCol) {
+          throw new Error(`${LANG_NAMES[lang]} Excel 未找到目标语言列`);
+        }
+
+        for (const episode of selectedEpisodes) {
+          const srtPayload = state.srtByEpisode.get(episodeToNumericKey(episode));
+          const baseRows = rowsByEpisode(state.baseSheetRows, episode);
+          const targetRows = rowsByEpisode(targetRowsAll, episode);
+          const srtEntries = srtPayload?.entries || [];
+          const srtBuckets = buildSrtBuckets(srtEntries);
+
+          // 配对行
+          const maxLen = Math.max(baseRows.length, targetRows.length);
+          const paired = [];
+          for (let i = 0; i < maxLen; i++) {
+            paired.push({
+              sourceText: safeCell(baseRows[i]?.[state.sourceTextColumn]) || safeCell(targetRows[i]?.[state.sourceTextColumn]),
+              baseText: safeCell(baseRows[i]?.[state.baseTextColumn]),
+              targetText: safeCell(targetRows[i]?.[targetCol])
+            });
+          }
+
+          const bucketUseCount = new Map();
+          const generatedRows = paired.map((row, idx) => {
+            const key = normalizeText(row.baseText);
+            const candidates = srtBuckets.get(key) || [];
+            const used = bucketUseCount.get(key) || 0;
+            const match = candidates[used] || null;
+            bucketUseCount.set(key, used + (match ? 1 : 0));
+            
+            return {
+              seq: idx + 1,
+              sourceText: row.sourceText,
+              baseText: row.baseText,
+              targetText: row.targetText,
+              start: match?.start || '',
+              end: match?.end || '',
+              status: match ? 'matched' : 'unmatched',
+              matchIndex: match?.index ?? null
+            };
+          });
+
+          const matchedCount = generatedRows.filter(r => r.status === 'matched').length;
+          const unmatchedCount = generatedRows.length - matchedCount;
+          totalMatched += matchedCount;
+          totalUnmatched += unmatchedCount;
+
+          const exportRows = generatedRows.filter(r => r.status === 'matched' && r.targetText);
+          const srt = formatSrt(exportRows);
+          const fileName = `${episode}-${lang}.srt`;
+
+          groups.push({
+            episode,
+            srtLoaded: Boolean(srtPayload),
+            outputs: [{
+              targetColumn: targetCol,
+              rows: generatedRows,
+              matchedCount,
+              unmatchedCount,
+              srt,
+              fileName
+            }]
+          });
+          
+          if (srt) files.push({ fileName, content: srt, lang, episode });
+        }
+
+        state.generatedGroups[lang] = groups;
+        state.generatedFiles[lang] = files;
+        totalMatchedAll += totalMatched;
+        totalUnmatchedAll += totalUnmatched;
+        
+        statusLines.push(`${LANG_NAMES[lang]}：匹配 ${totalMatched} 条，未匹配 ${totalUnmatched} 条`);
+      }
+
+      // 生成 Tabs
+      generateTabs();
+      
+      // 渲染
+      renderPreview();
+      renderSrt();
+
+      // 更新统计
+      els.stats.innerHTML = `
+        <span class="pill">已选集数 ${selectedEpisodes.length}</span>
+        <span class="pill">目标语言 ${state.targetLangs.length}</span>
+        <span class="pill ok">成功匹配 ${totalMatchedAll} 条</span>
+        ${totalUnmatchedAll > 0 ? `<span class="pill warn">未匹配 ${totalUnmatchedAll} 条</span>` : ''}
+      `;
+      
+      els.statusBox.textContent = statusLines.join('\n');
+    }
+
+    // 下载
+    async function downloadResults(all = false) {
+      const lang = state.currentTab;
+      
+      let filesToDownload = [];
+      
+      if (all || lang === 'all') {
+        // 下载所有语言
+        for (const l of state.targetLangs) {
+          filesToDownload = filesToDownload.concat(state.generatedFiles[l] || []);
+        }
+      } else {
+        // 下载当前选中语言
+        filesToDownload = state.generatedFiles[lang] || [];
+      }
+      
+      if (filesToDownload.length === 0) {
+        alert('没有可下载的文件');
+        return;
+      }
+      
+      if (filesToDownload.length === 1) {
+        // 单文件直接下载
+        const file = filesToDownload[0];
+        const blob = new Blob([file.content], { type: 'application/x-subrip;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        // 多文件打包
+        if (typeof JSZip === 'undefined') {
+          alert('JSZip 未加载，无法打包下载');
+          return;
+        }
+        
+        const zip = new JSZip();
+        filesToDownload.forEach(file => zip.file(file.fileName, file.content));
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = all || lang === 'all' ? 'all-languages-srt.zip' : `${lang}-srt.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    // 事件监听
+    els.baseLangSelect.addEventListener('change', (e) => {
+      state.baseLang = e.target.value;
+      if (state.baseLang) {
+        els.baseLangHint.textContent = `已选择基准语言：${LANG_NAMES[state.baseLang]}`;
+        els.baseXlsx.disabled = false;
+        els.baseSrt.disabled = false;
+        els.targetLangSelect.disabled = false;
+        els.selectAllTargetBtn.disabled = false;
+        els.clearTargetBtn.disabled = false;
+      } else {
+        els.baseLangHint.textContent = '请先选择基准语言';
+        els.baseXlsx.disabled = true;
+        els.baseSrt.disabled = true;
+        els.targetLangSelect.disabled = true;
+        els.selectAllTargetBtn.disabled = true;
+        els.clearTargetBtn.disabled = true;
+      }
+    });
+
+    els.baseXlsx.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
       if (!checkLibraries()) return;
+      
       try {
         const buffer = await readFileAsArrayBuffer(file);
         state.baseWorkbook = arrayBufferToWorkbook(buffer);
         state.baseSheetRows = workbookToJson(state.baseWorkbook, '画面字');
+        
+        // 检测列
+        const detected = detectColumns(state.baseSheetRows, state.baseLang);
+        if (!detected) throw new Error('Excel 没有数据');
+        
+        state.sourceTextColumn = detected.sourceCol;
+        state.baseTextColumn = detected.baseCol;
+        
         setFileName(els.baseXlsxName, [file]);
-        refreshSelectors();
-        renderStatus([`已加载基准 Excel：${file.name}，共 ${state.baseSheetRows.length} 行`]);
+        els.baseColumnInfo.innerHTML = `
+          <span class="success">✓ 原文列：${detected.sourceCol || '未识别'}</span> | 
+          <span class="success">✓ 基准语言列：${detected.baseCol || '未识别'}</span>
+        `;
+        
+        if (!detected.baseCol) {
+          els.baseColumnInfo.innerHTML += '<br><span class="error">⚠ 未能自动识别基准语言列，请确保列名包含语言标识（如"英语"、"EN"等）</span>';
+        }
+        
+        refreshEpisodeSelector();
+        checkCanGenerate();
+        
       } catch (err) {
-        alert('加载基准 Excel 失败：' + (err.message || String(err)));
+        alert('加载基准 Excel 失败：' + err.message);
       }
-    }
+    });
 
-    async function handleTargetXlsx(file) {
-      if (!checkLibraries()) return;
-      try {
-        const buffer = await readFileAsArrayBuffer(file);
-        state.targetWorkbook = arrayBufferToWorkbook(buffer);
-        state.targetSheetRows = workbookToJson(state.targetWorkbook, '画面字');
-        setFileName(els.targetXlsxName, [file]);
-        refreshSelectors();
-        renderStatus([`已加载目标 Excel：${file.name}，共 ${state.targetSheetRows.length} 行`]);
-      } catch (err) {
-        alert('加载目标 Excel 失败：' + (err.message || String(err)));
-      }
-    }
-
-    async function handleBaseSrt(files) {
-      if (!checkLibraries()) return;
+    els.baseSrt.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      
       state.srtByEpisode = new Map();
       for (const file of files) {
         const text = await readFileAsText(file);
@@ -735,185 +1207,28 @@
           entries
         });
       }
+      
       setFileName(els.baseSrtName, files);
-      renderSrtFileList();
       
-      if (state.baseWorkbook && state.targetWorkbook) {
-        refreshSelectors();
-      }
-    }
-
-    function findSrtPayloadForEpisode(episode) {
-      const key = episodeToNumericKey(episode);
-      return state.srtByEpisode.get(key) || null;
-    }
-
-    function sanitizeFileName(name) {
-      return String(name).replace(/[\\/:*?"<>|]+/g, '_');
-    }
-
-    function generateAll() {
-      if (!state.librariesLoaded) {
-        throw new Error('必要的库未加载，请检查网络连接。');
-      }
-      if (!state.baseWorkbook || !state.targetWorkbook || !state.srtByEpisode.size) {
-        throw new Error('请先上传完整的基准 Excel、至少 1 个 SRT、目标 Excel。');
-      }
+      // 更新 SRT 列表显示
+      const items = [...state.srtByEpisode.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN', { numeric: true }))
+        .map(([episode, payload]) => `${episode} ← ${payload.fileName}（${payload.entries.length} 条）`);
+      els.baseSrtList.innerHTML = items.map(x => `<div>${escapeHtml(x)}</div>`).join('');
       
-      const selectedEpisodes = getSelectedValues(els.episodeSelect);
-      const selectedTargetColumns = getSelectedValues(els.targetColumnSelect);
-      const baseTextColumn = els.baseColumnSelect.value;
-      
-      if (!baseTextColumn || baseTextColumn === '请先上传基准 Excel') {
-        throw new Error('请选择基准语言列。');
-      }
-      
-      if (!selectedEpisodes.length) throw new Error('请至少选择 1 个集数。');
-      if (!selectedTargetColumns.length) throw new Error('请至少选择 1 个目标语言列。');
-
-      state.selectedBaseColumn = baseTextColumn;
-      const baseRowsAll = state.baseSheetRows;
-      const targetRowsAll = state.targetSheetRows;
-      const groups = [];
-      const files = [];
-      let totalMatched = 0;
-      let totalUnmatched = 0;
-      const statusLines = [
-        `基准文本列：${baseTextColumn}`,
-        `已选集数：${selectedEpisodes.join('、')}`,
-        `已选目标语言列：${selectedTargetColumns.join('、')}`,
-        `已上传 SRT 集数：${[...state.srtByEpisode.keys()].join('、') || '无'}`
-      ];
-
-      for (const episode of selectedEpisodes) {
-        const srtPayload = findSrtPayloadForEpisode(episode);
-        const baseRows = rowsByEpisode(baseRowsAll, episode);
-        const targetRows = rowsByEpisode(targetRowsAll, episode);
-        const srtEntries = srtPayload?.entries || [];
-        const srtBuckets = buildSrtBuckets(srtEntries);
-        const outputs = [];
-
-        if (!srtPayload) {
-          statusLines.push(`- ${episode}：未找到对应 SRT 文件，已跳过匹配。`);
-        }
-
-        for (const targetColumn of selectedTargetColumns) {
-          const paired = pairRows(baseRows, targetRows, baseTextColumn, targetColumn);
-          const bucketUseCount = new Map();
-          const generatedRows = paired.map((row, idx) => {
-            const key = normalizeText(row.baseText);
-            const candidates = srtBuckets.get(key) || [];
-            const used = bucketUseCount.get(key) || 0;
-            const match = candidates[used] || null;
-            bucketUseCount.set(key, used + (match ? 1 : 0));
-            return {
-              seq: idx + 1,
-              sourceText: row.sourceText,
-              baseText: row.baseText,
-              targetText: row.targetText,
-              start: match?.start || '',
-              end: match?.end || '',
-              status: match ? 'matched' : 'unmatched',
-              matchIndex: match?.index ?? null,
-              baseTime: row.baseTime
-            };
-          });
-
-          const matchedCount = generatedRows.filter(r => r.status === 'matched').length;
-          const unmatchedCount = generatedRows.length - matchedCount;
-          totalMatched += matchedCount;
-          totalUnmatched += unmatchedCount;
-
-          const exportRows = generatedRows.filter(r => r.status === 'matched' && r.targetText);
-          const srt = formatSrt(exportRows);
-          const fileName = `${sanitizeFileName(episode)}-${sanitizeFileName(targetColumn)}.srt`;
-          outputs.push({
-            targetColumn,
-            rows: generatedRows,
-            matchedCount,
-            unmatchedCount,
-            srt,
-            fileName
-          });
-          if (srt) files.push({ fileName, content: srt });
-        }
-
-        groups.push({
-          episode,
-          srtLoaded: Boolean(srtPayload),
-          outputs
-        });
-      }
-
-      state.generatedGroups = groups;
-      state.generatedFiles = files;
-      renderStats({
-        selectedEpisodes: selectedEpisodes.length,
-        selectedTargetColumns: selectedTargetColumns.length,
-        availableSrtEpisodes: state.srtByEpisode.size,
-        generatedFiles: files.length,
-        matchedCount: totalMatched,
-        unmatchedCount: totalUnmatched
-      });
-      renderStatus(statusLines);
-      renderPreviewGroups(groups);
-      renderSrtGroups(groups);
-      els.downloadBtn.disabled = !files.length;
-    }
-
-    async function downloadResults() {
-      if (!state.generatedFiles.length) return;
-      if (state.generatedFiles.length === 1) {
-        const file = state.generatedFiles[0];
-        const blob = new Blob([file.content], { type: 'application/x-subrip;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = file.fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        return;
-      }
-      if (typeof JSZip === 'undefined') {
-        throw new Error('未成功加载 JSZip，请联网后重新打开这个 HTML 文件。');
-      }
-      const zip = new JSZip();
-      state.generatedFiles.forEach(file => zip.file(file.fileName, file.content));
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'generated-srt-batch.zip';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    // 事件监听
-    els.baseXlsx.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      await handleBaseXlsx(file);
+      checkCanGenerate();
     });
 
-    els.targetXlsx.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      await handleTargetXlsx(file);
+    els.targetLangSelect.addEventListener('change', updateTargetUploadArea);
+    
+    els.selectAllTargetBtn.addEventListener('click', () => {
+      setAllSelected(els.targetLangSelect, true);
+      updateTargetUploadArea();
     });
-
-    els.baseSrt.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files || []);
-      if (!files.length) return;
-      await handleBaseSrt(files);
-    });
-
-    els.baseColumnSelect.addEventListener('change', (e) => {
-      state.selectedBaseColumn = e.target.value;
-      els.baseColumnHint.textContent = `已选择"${e.target.value}"作为基准语言列`;
+    
+    els.clearTargetBtn.addEventListener('click', () => {
+      setAllSelected(els.targetLangSelect, false);
+      updateTargetUploadArea();
     });
 
     els.selectAllEpisodesBtn.addEventListener('click', () => {
@@ -927,34 +1242,33 @@
     });
     
     els.syncEpisodesBtn.addEventListener('click', () => {
-      const srtEpisodeValues = [...state.srtByEpisode.keys()];
-      const matchedEpisodes = Array.from(els.episodeSelect.options)
+      const srtKeys = [...state.srtByEpisode.keys()];
+      const matched = Array.from(els.episodeSelect.options)
         .map(opt => opt.value)
-        .filter(ep => srtEpisodeValues.includes(episodeToNumericKey(ep)));
-      setSelectedByValues(els.episodeSelect, matchedEpisodes);
-      els.episodeHint.textContent = `已按 SRT 选中 ${matchedEpisodes.length} 个集数`;
+        .filter(ep => srtKeys.includes(episodeToNumericKey(ep)));
+      setSelectedByValues(els.episodeSelect, matched);
+      els.episodeHint.textContent = `已按 SRT 选中 ${matched.length} 个集数`;
     });
-    
-    els.selectAllTargetColsBtn.addEventListener('click', () => setAllSelected(els.targetColumnSelect, true));
-    els.clearTargetColsBtn.addEventListener('click', () => setAllSelected(els.targetColumnSelect, false));
 
-    els.generateBtn.addEventListener('click', () => {
+    els.generateBtn.addEventListener('click', async () => {
       try {
-        generateAll();
+        await generateAll();
       } catch (err) {
         alert(err.message || String(err));
       }
     });
 
-    els.downloadBtn.addEventListener('click', async () => {
-      try {
-        await downloadResults();
-      } catch (err) {
-        alert(err.message || String(err));
-      }
-    });
+    els.downloadCurrentBtn.addEventListener('click', () => downloadResults(false));
+    els.downloadAllBtn.addEventListener('click', () => downloadResults(true));
 
-    // 页面加载完成后检查库
+    function setSelectedByValues(selectEl, values) {
+      const set = new Set(values);
+      Array.from(selectEl.options).forEach(opt => {
+        if (!opt.disabled) opt.selected = set.has(opt.value);
+      });
+    }
+
+    // 初始化
     window.addEventListener('load', () => {
       checkLibraries();
     });
