@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SRT 对比工具 V8</title>
+  <style>
+    :root {
+      --bg: #f7f2eb;
+      --panel: rgba(255, 252, 248, 0.94);
+      --line: rgba(40, 33, 26, 0.12);
+      --ink: #221d18;
+      --muted: #6b645c;
+      --accent: #157c6c;
+      --danger: #c14a3e;
+      --ok: #2a8b57;
+      --warn: #b97810;
+      --warn-bg: rgba(185, 120, 16, 0.16);
+      --shadow: 0 18px 38px rgba(41, 33, 26, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(21, 124, 108, 0.12), transparent 28%),
+        radial-gradient(circle at top right, rgba(208, 139, 24, 0.12), transparent 24%),
+        linear-gradient(180deg, #faf5ee 0%, #efe6dc 100%);
+    }
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 28px;
+      display: grid;
+      gap: 18px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.72);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+    }
+    .hero h1, .panel h2 { margin: 0; }
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .muted { color: var(--muted); }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      align-items: end;
+    }
+    label span {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    input[type="file"], input[type="number"] {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.92);
+      font: inherit;
+    }
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button, .link-btn {
+      border: none;
+      border-radius: 14px;
+      padding: 11px 16px;
+      font: inherit;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .primary-btn {
+      background: linear-gradient(135deg, var(--accent), #165d8e);
+      color: #fff;
+    }
+    .ghost-btn {
+      background: rgba(255,255,255,0.84);
+      color: var(--muted);
+    }
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .metric {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.86);
+      border: 1px solid var(--line);
+    }
+    .metric strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .metric span {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .summary-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .summary-item {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.86);
+      border: 1px solid var(--line);
+      line-height: 1.6;
+    }
+    .summary-item strong {
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .info-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.86);
+      border: 1px solid var(--line);
+      line-height: 1.65;
+    }
+    .info-card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .info-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: rgba(255,255,255,0.86);
+      border: 1px solid var(--line);
+    }
+    .chip.ok { color: var(--ok); font-weight: 700; }
+    .chip.warn { color: var(--warn); font-weight: 700; }
+    .chip.danger { color: var(--danger); font-weight: 700; }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.86);
+      max-height: 820px;
+    }
+    table {
+      width: 100%;
+      min-width: 1280px;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #f7f2eb;
+      z-index: 10;
+    }
+    th.local-col, td.local-col {
+      width: 34%;
+      background: rgba(21,124,108,0.03);
+      border-right: 1px solid rgba(21,124,108,0.10);
+    }
+    th.base-col, td.base-col {
+      width: 34%;
+      background: rgba(185,120,16,0.03);
+      border-left: 1px solid rgba(185,120,16,0.08);
+    }
+    .result-type-ok { color: var(--ok); font-weight: 700; }
+    .result-type-warn { color: var(--warn); font-weight: 700; }
+    .result-type-danger { color: var(--danger); font-weight: 700; }
+    .note-ok { color: var(--ok); font-weight: 700; }
+    .note-warn { color: var(--warn); font-weight: 700; }
+    .note-danger { color: var(--danger); font-weight: 700; }
+    .mono {
+      font-family: Consolas, Monaco, monospace;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .text-cell {
+      line-height: 1.55;
+      min-width: 260px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .file-group-header {
+      background: rgba(21, 124, 108, 0.08);
+      font-weight: bold;
+      color: var(--accent);
+      padding: 16px !important;
+    }
+    .delta-strong { font-weight: 700; }
+    .delta-warn { color: var(--warn); }
+    .delta-danger { color: var(--danger); }
+    .diff-char {
+      color: var(--warn);
+      font-weight: 700;
+      background: var(--warn-bg);
+      border-radius: 4px;
+      padding: 0 1px;
+    }
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      background: rgba(34, 29, 24, 0.92);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 14px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: 180ms ease;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="panel hero">
+      <div>
+        <p class="eyebrow">Local SRT Diff V8</p>
+        <h1>SRT 对比工具 V8</h1>
+        <p class="muted">在 V7 基础上新增页面内功能说明，整理当前支持能力与对比逻辑；不改现有配对和判定规则。</p>
+      </div>
+      <div class="button-row">
+        <a class="link-btn ghost-btn" href="/srt_compare_toolV7.html">返回 V7</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div>
+        <p class="eyebrow">功能说明</p>
+        <h2>当前支持能力与对比逻辑</h2>
+      </div>
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>当前支持能力</h3>
+          <p>1. 支持本地两组 SRT 文件上传，支持单文件对单文件，也支持同名多文件批量配对。
+2. 支持按文件名自动配对，如两边都有同名 `1.srt`，会自动作为一组比较。
+3. 支持逐条展示：本地 SRT、底稿匹配、时间差、状态、说明。
+4. 支持统计摘要：对比集数、OK/WARN/DANGER 数量、无差异集数、有差异集数。
+5. 支持文本相近时高亮底稿中的差异字。
+6. 支持导出当前对比结果 JSON。</p>
+        </div>
+        <div class="info-card">
+          <h3>对比主逻辑</h3>
+          <p>1. 以“本地 SRT”为左侧主视角，底稿作为右侧匹配来源。
+2. 先在相邻 2-3 句上下文窗口中寻找候选，避免跨很远的短句误配。
+3. 优先匹配文本完全一致的句子。
+4. 如果找不到完全一致，会在局部窗口中找文本最相近的一句并排展示。
+5. 如果局部窗口内没有像样候选，则判为“本地有，底稿没有”。
+6. 所有未被匹配到的底稿条目，最终判为“底稿多余”。</p>
+        </div>
+        <div class="info-card">
+          <h3>状态判定说明</h3>
+          <p>OK：
+文本一致，且时间差不超过阈值。
+
+WARN：
+文本一致但时间轴超出阈值，或文本相近（相似度较高）。
+
+DANGER：
+文本不一致、本地有底稿没有、底稿多余，或其他明显差异。
+
+补充：
+文本比较前会先做字符归一化（NFKC），会统一全角/半角括号等兼容字符后再比较。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="button-row" style="justify-content:space-between;">
+        <div>
+          <p class="eyebrow">输入文件</p>
+          <h2>混合字幕底稿 vs 本地 SRT</h2>
+        </div>
+        <div class="button-row">
+          <button class="primary-btn" id="compareBtn" type="button">开始对比</button>
+          <button class="ghost-btn" id="downloadBtn" type="button" disabled>下载结果 JSON</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label>
+          <span>底稿 SRT / 混合字幕（右列匹配来源）</span>
+          <input id="baseInput" type="file" accept=".srt" multiple>
+        </label>
+        <label>
+          <span>本地 SRT（左列主视角）</span>
+          <input id="targetInput" type="file" accept=".srt" multiple>
+        </label>
+        <label>
+          <span>时间轴差异阈值（秒）</span>
+          <input id="timeThresholdInput" type="number" min="0.1" max="5" step="0.1" value="0.8">
+        </label>
+        <label>
+          <span>上下文窗口（前后句数）</span>
+          <input id="contextWindowInput" type="number" min="1" max="5" step="1" value="3">
+        </label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="button-row" style="justify-content:space-between;">
+        <div>
+          <p class="eyebrow">结果概览</p>
+          <h2>对比摘要</h2>
+        </div>
+        <div class="legend">
+          <span class="chip ok">OK</span>
+          <span class="chip.warn chip">WARN</span>
+          <span class="chip danger">DANGER</span>
+        </div>
+      </div>
+      <div class="metrics" id="metrics"></div>
+      <div class="summary-list" id="episodeSummary"></div>
+    </section>
+
+    <section class="panel">
+      <div>
+        <p class="eyebrow">明细</p>
+        <h2>逐条对比（差异字高亮版）</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th width="90">状态</th>
+              <th class="local-col">本地 SRT</th>
+              <th class="base-col">底稿匹配</th>
+              <th width="110">时间差</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody id="detailBody">
+            <tr><td colspan="5" class="muted">请选择文件后点击“开始对比”。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const els = {
+      baseInput: document.getElementById("baseInput"),
+      targetInput: document.getElementById("targetInput"),
+      timeThresholdInput: document.getElementById("timeThresholdInput"),
+      contextWindowInput: document.getElementById("contextWindowInput"),
+      compareBtn: document.getElementById("compareBtn"),
+      downloadBtn: document.getElementById("downloadBtn"),
+      metrics: document.getElementById("metrics"),
+      episodeSummary: document.getElementById("episodeSummary"),
+      detailBody: document.getElementById("detailBody"),
+      toast: document.getElementById("toast")
+    };
+
+    const state = { resultPayload: null };
+    let rowSeed = 1;
+
+    els.compareBtn.addEventListener("click", async () => {
+      const baseFiles = Array.from(els.baseInput.files || []);
+      const targetFiles = Array.from(els.targetInput.files || []);
+      const threshold = Number(els.timeThresholdInput.value || 0.8);
+      const contextWindow = Math.max(1, Number(els.contextWindowInput.value || 3));
+
+      if (!baseFiles.length || !targetFiles.length) {
+        showToast("请在两边都选择至少一个 SRT 文件。");
+        return;
+      }
+
+      els.detailBody.innerHTML = '<tr><td colspan="5" class="muted">分析中...</td></tr>';
+
+      try {
+        const pairings = buildPairings(baseFiles, targetFiles);
+        if (!pairings.length) throw new Error("未找到匹配的文件名，请检查文件名。");
+
+        const allRows = [];
+        const globalSummary = {
+          totalComparedFiles: pairings.length,
+          okCount: 0,
+          warnCount: 0,
+          dangerCount: 0,
+          cleanEpisodes: [],
+          diffEpisodes: []
+        };
+
+        for (const pair of pairings) {
+          const [baseText, targetText] = await Promise.all([pair.base.text(), pair.target.text()]);
+          const baseEntries = parseSrt(baseText);
+          const targetEntries = parseSrt(targetText);
+          const result = compareSrtEntries(baseEntries, targetEntries, threshold, contextWindow);
+          const episodeNo = extractEpisodeNo(pair.target.name);
+
+          allRows.push({
+            isHeader: true,
+            targetFileName: pair.target.name,
+            baseFileName: pair.base.name
+          });
+          allRows.push(...result.rows);
+
+          globalSummary.okCount += result.summary.okCount;
+          globalSummary.warnCount += result.summary.warnCount;
+          globalSummary.dangerCount += result.summary.dangerCount;
+
+          if (result.summary.warnCount === 0 && result.summary.dangerCount === 0) {
+            if (episodeNo !== null) globalSummary.cleanEpisodes.push(episodeNo);
+          } else {
+            if (episodeNo !== null) globalSummary.diffEpisodes.push(episodeNo);
+          }
+        }
+
+        globalSummary.cleanEpisodes.sort((a, b) => a - b);
+        globalSummary.diffEpisodes.sort((a, b) => a - b);
+
+        state.resultPayload = { summary: globalSummary, rows: allRows };
+        renderMetrics(globalSummary);
+        renderEpisodeSummary(globalSummary);
+        renderRows(allRows);
+        els.downloadBtn.disabled = false;
+        showToast(`完成！共处理 ${pairings.length} 个文件。`);
+      } catch (error) {
+        els.detailBody.innerHTML = `<tr><td colspan="5" class="muted">${escapeHtml(error.message)}</td></tr>`;
+      }
+    });
+
+    els.downloadBtn.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(state.resultPayload, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "compare_result_v8.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    function buildPairings(baseFiles, targetFiles) {
+      const pairs = [];
+      if (baseFiles.length === 1 && targetFiles.length === 1) {
+        return [{ base: baseFiles[0], target: targetFiles[0] }];
+      }
+      baseFiles.forEach((bFile) => {
+        const match = targetFiles.find((tFile) => tFile.name === bFile.name);
+        if (match) pairs.push({ base: bFile, target: match });
+      });
+      return pairs;
+    }
+
+    function parseSrt(text) {
+      const normalized = String(text || "").replace(/\r/g, "").trim();
+      if (!normalized) return [];
+      return normalized.split(/\n\s*\n/g).map((block) => {
+        const lines = block.trim().split("\n").map((line) => line.trim()).filter(Boolean);
+        if (lines.length < 2) return null;
+        const timeLineIndex = lines[1] && lines[1].includes("-->") ? 1 : 0;
+        const timeLine = lines[timeLineIndex];
+        if (!timeLine || !timeLine.includes("-->")) return null;
+        const [startText, endText] = timeLine.split("-->").map((v) => v.trim());
+        return {
+          rowId: rowSeed++,
+          start: parseSrtTime(startText),
+          end: parseSrtTime(endText),
+          startText,
+          endText,
+          text: lines.slice(timeLineIndex + 1).join("\n").trim()
+        };
+      }).filter(Boolean);
+    }
+
+    function parseSrtTime(value) {
+      const match = String(value).match(/(\d+):(\d+):(\d+),(\d+)/);
+      if (!match) return 0;
+      return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 1000;
+    }
+
+    function compareSrtEntries(baseEntries, targetEntries, threshold, contextWindow) {
+      const usedBaseIds = new Set();
+      const rows = [];
+      let okCount = 0;
+      let warnCount = 0;
+      let dangerCount = 0;
+
+      targetEntries.forEach((target, targetIndex) => {
+        const match = findLocalBestMatch(targetEntries, targetIndex, baseEntries, usedBaseIds, threshold, contextWindow);
+        if (!match) {
+          rows.push(buildRow("DANGER", target, null, "-", "本地有，底稿没有。", target.start));
+          dangerCount += 1;
+          return;
+        }
+
+        usedBaseIds.add(match.entry.rowId);
+        const delta = calcDelta(target, match.entry);
+        const exactText = normalizeText(target.text) === normalizeText(match.entry.text);
+        const similarity = textSimilarity(target.text, match.entry.text);
+
+        if (exactText && delta <= threshold) {
+          rows.push(buildRow("OK", target, match.entry, `${delta.toFixed(3)}s`, "文本一致", target.start, false));
+          okCount += 1;
+          return;
+        }
+        if (exactText && delta > threshold) {
+          rows.push(buildRow("WARN", target, match.entry, `${delta.toFixed(3)}s`, "文本一致，时间轴差异", target.start, false));
+          warnCount += 1;
+          return;
+        }
+        if (similarity >= 0.78) {
+          rows.push(buildRow("WARN", target, match.entry, `${delta.toFixed(3)}s`, `文本相近（相似度 ${(similarity * 100).toFixed(0)}%）`, target.start, true));
+          warnCount += 1;
+          return;
+        }
+
+        rows.push(buildRow("DANGER", target, match.entry, `${delta.toFixed(3)}s`, "文本不一致", target.start, false));
+        dangerCount += 1;
+      });
+
+      baseEntries.forEach((entry) => {
+        if (!usedBaseIds.has(entry.rowId)) {
+          rows.push(buildRow("DANGER", null, entry, "-", "底稿多余", entry.start, false));
+          dangerCount += 1;
+        }
+      });
+
+      rows.sort((a, b) => a.sortTime - b.sortTime);
+      return { summary: { okCount, warnCount, dangerCount }, rows };
+    }
+
+    function findLocalBestMatch(targetEntries, targetIndex, baseEntries, usedBaseIds, threshold, contextWindow) {
+      const from = Math.max(0, targetIndex - contextWindow);
+      const to = Math.min(targetEntries.length - 1, targetIndex + contextWindow);
+      const localTargets = targetEntries.slice(from, to + 1);
+      const minStart = Math.min(...localTargets.map((item) => item.start)) - Math.max(0.8, threshold);
+      const maxEnd = Math.max(...localTargets.map((item) => item.end)) + Math.max(0.8, threshold);
+      const target = targetEntries[targetIndex];
+
+      const candidates = baseEntries.filter((entry) => {
+        if (usedBaseIds.has(entry.rowId)) return false;
+        return entry.end >= minStart && entry.start <= maxEnd;
+      });
+      if (!candidates.length) return null;
+
+      const exact = [];
+      const similar = [];
+      const weak = [];
+
+      candidates.forEach((entry) => {
+        const sim = textSimilarity(target.text, entry.text);
+        const delta = calcDelta(target, entry);
+        const overlap = calcOverlap(target, entry);
+        const exactText = normalizeText(target.text) === normalizeText(entry.text);
+
+        if (exactText) {
+          exact.push({ entry, score: overlap * 4 - delta, sim });
+          return;
+        }
+        if (sim >= 0.78) {
+          similar.push({ entry, score: sim * 3 + overlap * 3 - delta, sim });
+          return;
+        }
+        weak.push({ entry, score: sim * 2 + overlap * 2 - delta * 0.6, sim });
+      });
+
+      exact.sort((a, b) => b.score - a.score);
+      similar.sort((a, b) => b.score - a.score);
+      weak.sort((a, b) => b.score - a.score);
+
+      if (exact.length) return exact[0];
+      if (similar.length) return similar[0];
+      if (weak.length && weak[0].sim >= 0.42) return weak[0];
+      return null;
+    }
+
+    function calcDelta(a, b) {
+      return Math.max(Math.abs(a.start - b.start), Math.abs(a.end - b.end));
+    }
+
+    function calcOverlap(a, b) {
+      return Math.max(0, Math.min(a.end, b.end) - Math.max(a.start, b.start));
+    }
+
+    function buildRow(status, target, base, deltaText, note, sortTime, highlightBaseDiff) {
+      const labelClass = status === "OK"
+        ? "result-type-ok"
+        : status === "WARN"
+          ? "result-type-warn"
+          : "result-type-danger";
+      const noteClass = status === "OK"
+        ? "note-ok"
+        : status === "WARN"
+          ? "note-warn"
+          : "note-danger";
+
+      return {
+        type: status,
+        labelClass,
+        noteClass,
+        sortTime,
+        targetTime: target ? `${target.startText} --> ${target.endText}` : "-",
+        targetText: target?.text || "-",
+        baseTime: base ? `${base.startText} --> ${base.endText}` : "-",
+        baseText: base?.text || "-",
+        deltaText,
+        note,
+        highlightBaseDiff,
+        deltaClass: status === "WARN" ? "delta-strong delta-warn" : status === "DANGER" ? "delta-strong delta-danger" : ""
+      };
+    }
+
+    function normalizeText(value) {
+      return String(value || "")
+        .normalize("NFKC")
+        .replace(/\s+/g, "")
+        .trim();
+    }
+
+    function textSimilarity(a, b) {
+      const s1 = normalizeText(a);
+      const s2 = normalizeText(b);
+      if (!s1 || !s2) return 0;
+      if (s1 === s2) return 1;
+      const dist = levenshtein(s1, s2);
+      return 1 - dist / Math.max(s1.length, s2.length);
+    }
+
+    function levenshtein(a, b) {
+      const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+      for (let i = 0; i <= a.length; i += 1) matrix[i][0] = i;
+      for (let j = 0; j <= b.length; j += 1) matrix[0][j] = j;
+      for (let i = 1; i <= a.length; i += 1) {
+        for (let j = 1; j <= b.length; j += 1) {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+          );
+        }
+      }
+      return matrix[a.length][b.length];
+    }
+
+    function extractEpisodeNo(fileName) {
+      const match = String(fileName || "").match(/(\d+)\.srt$/i) || String(fileName || "").match(/(\d+)/);
+      return match ? Number(match[1]) : null;
+    }
+
+    function renderMetrics(summary) {
+      const items = [
+        ["对比集数", summary.totalComparedFiles],
+        ["OK", summary.okCount],
+        ["WARN", summary.warnCount],
+        ["DANGER", summary.dangerCount]
+      ];
+      els.metrics.innerHTML = items.map(([label, value]) => `
+        <div class="metric">
+          <strong>${escapeHtml(label)}</strong>
+          <span>${escapeHtml(value)}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderEpisodeSummary(summary) {
+      const cleanText = summary.cleanEpisodes.length
+        ? `${summary.cleanEpisodes.join("、")}，共${summary.cleanEpisodes.length}集`
+        : "无";
+      const diffText = summary.diffEpisodes.length
+        ? `${summary.diffEpisodes.join("、")}，共${summary.diffEpisodes.length}集`
+        : "无";
+      els.episodeSummary.innerHTML = `
+        <div class="summary-item"><strong>无差异集数：</strong>${escapeHtml(cleanText)}</div>
+        <div class="summary-item"><strong>有差异集数：</strong>${escapeHtml(diffText)}</div>
+      `;
+    }
+
+    function renderRows(rows) {
+      els.detailBody.innerHTML = rows.map((row) => {
+        if (row.isHeader) {
+          return `<tr><td colspan="5" class="file-group-header">本地文件：${escapeHtml(row.targetFileName)} ｜ 底稿文件：${escapeHtml(row.baseFileName)}</td></tr>`;
+        }
+        const baseTextHtml = row.highlightBaseDiff
+          ? highlightBaseTextDiff(row.targetText, row.baseText)
+          : textToHtml(row.baseText);
+        return `
+          <tr>
+            <td class="${row.labelClass}">${escapeHtml(row.type)}</td>
+            <td class="local-col">
+              <div class="mono">${escapeHtml(row.targetTime)}</div>
+              <div class="text-cell">${textToHtml(row.targetText)}</div>
+            </td>
+            <td class="base-col">
+              <div class="mono">${escapeHtml(row.baseTime)}</div>
+              <div class="text-cell">${baseTextHtml}</div>
+            </td>
+            <td class="mono ${row.deltaClass}">${escapeHtml(row.deltaText)}</td>
+            <td class="text-cell ${row.noteClass}">${escapeHtml(row.note)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function highlightBaseTextDiff(targetText, baseText) {
+      const target = String(targetText || "");
+      const base = String(baseText || "");
+      if (!target || !base) return textToHtml(base);
+
+      const matchedIndices = buildBaseLcsIndexSet(target, base);
+      let html = "";
+      for (let i = 0; i < base.length; i += 1) {
+        const ch = base[i];
+        const safe = escapeHtml(ch);
+        if (ch === "\n") {
+          html += "<br>";
+        } else if (matchedIndices.has(i)) {
+          html += safe;
+        } else {
+          html += `<span class="diff-char">${safe}</span>`;
+        }
+      }
+      return html;
+    }
+
+    function buildBaseLcsIndexSet(a, b) {
+      const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+      for (let i = a.length - 1; i >= 0; i -= 1) {
+        for (let j = b.length - 1; j >= 0; j -= 1) {
+          if (a[i] === b[j]) dp[i][j] = dp[i + 1][j + 1] + 1;
+          else dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+        }
+      }
+      const matched = new Set();
+      let i = 0;
+      let j = 0;
+      while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) {
+          matched.add(j);
+          i += 1;
+          j += 1;
+        } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+          i += 1;
+        } else {
+          j += 1;
+        }
+      }
+      return matched;
+    }
+
+    function textToHtml(value) {
+      return escapeHtml(String(value || "")).replace(/\n/g, "<br>");
+    }
+
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, (s) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[s]));
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("show");
+      setTimeout(() => els.toast.classList.remove("show"), 3000);
+    }
+  </script>
+</body>
+</html>
