@@ -178,6 +178,60 @@
     .chip.ok { color: var(--ok); font-weight: 700; }
     .chip.warn { color: var(--warn); font-weight: 700; }
     .chip.danger { color: var(--danger); font-weight: 700; }
+    .episode-tabs {
+      margin: 10px 0 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .episode-tab {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.9);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+    .episode-tab.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    .help-collapse {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.74);
+      padding: 10px 12px;
+    }
+    .help-summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 700;
+      user-select: none;
+      margin-bottom: 8px;
+    }
+    .help-collapse[open] .help-summary {
+      margin-bottom: 12px;
+    }
+    .episode-error-board {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .ep-error-line {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.86);
+      line-height: 1.8;
+      word-break: break-word;
+    }
+    .ep-error-item-high {
+      color: var(--danger);
+      font-weight: 700;
+    }
     .table-wrap {
       overflow: auto;
       border: 1px solid var(--line);
@@ -284,7 +338,9 @@
         <p class="eyebrow">功能说明</p>
         <h2>当前支持能力与对比逻辑</h2>
       </div>
-      <div class="info-grid">
+      <details class="help-collapse">
+        <summary class="help-summary">点击展开查看全部功能说明</summary>
+        <div class="info-grid">
         <div class="info-card">
           <h3>当前支持能力</h3>
           <p>1. 支持本地两组 SRT 文件上传，支持单文件对单文件，也支持同名多文件批量配对。
@@ -317,7 +373,8 @@ DANGER：
 补充：
 文本比较前会先做字符归一化（NFKC），会统一全角/半角括号等兼容字符后再比较。</p>
         </div>
-      </div>
+        </div>
+      </details>
     </section>
 
     <section class="panel">
@@ -349,7 +406,8 @@ DANGER：
           <span>上下文窗口（前后句数）</span>
           <input id="contextWindowInput" type="number" min="1" max="5" step="1" value="3">
         </label>
-      </div>
+        </div>
+      </details>
     </section>
 
     <section class="panel">
@@ -370,9 +428,20 @@ DANGER：
 
     <section class="panel">
       <div>
+        <p class="eyebrow">集数错误情况</p>
+        <h2>按集错误条数（WARN + DANGER）</h2>
+      </div>
+      <div class="episode-error-board" id="episodeErrorBoard">
+        <div class="muted">请先开始对比。</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div>
         <p class="eyebrow">明细</p>
         <h2>逐条对比（差异字高亮版）</h2>
       </div>
+      <div class="episode-tabs" id="episodeTabs"></div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -404,11 +473,13 @@ DANGER：
       downloadBtn: document.getElementById("downloadBtn"),
       metrics: document.getElementById("metrics"),
       episodeSummary: document.getElementById("episodeSummary"),
+      episodeErrorBoard: document.getElementById("episodeErrorBoard"),
+      episodeTabs: document.getElementById("episodeTabs"),
       detailBody: document.getElementById("detailBody"),
       toast: document.getElementById("toast")
     };
 
-    const state = { resultPayload: null };
+    const state = { resultPayload: null, allRows: [], currentEpisode: "ALL", episodeList: [] };
     let rowSeed = 1;
 
     els.compareBtn.addEventListener("click", async () => {
@@ -423,6 +494,7 @@ DANGER：
       }
 
       els.detailBody.innerHTML = '<tr><td colspan="5" class="muted">分析中...</td></tr>';
+      if (els.episodeErrorBoard) els.episodeErrorBoard.innerHTML = '<div class="muted">分析中...</div>';
 
       try {
         const pairings = buildPairings(baseFiles, targetFiles);
@@ -437,6 +509,7 @@ DANGER：
           cleanEpisodes: [],
           diffEpisodes: []
         };
+        const episodeErrorCounts = {};
 
         for (const pair of pairings) {
           const [baseText, targetText] = await Promise.all([pair.base.text(), pair.target.text()]);
@@ -447,14 +520,19 @@ DANGER：
 
           allRows.push({
             isHeader: true,
+            episodeNo,
             targetFileName: pair.target.name,
             baseFileName: pair.base.name
           });
-          allRows.push(...result.rows);
+          allRows.push(...result.rows.map((row) => ({ ...row, episodeNo })));
 
           globalSummary.okCount += result.summary.okCount;
           globalSummary.warnCount += result.summary.warnCount;
           globalSummary.dangerCount += result.summary.dangerCount;
+
+          if (episodeNo !== null) {
+            episodeErrorCounts[episodeNo] = (episodeErrorCounts[episodeNo] || 0) + result.summary.warnCount + result.summary.dangerCount;
+          }
 
           if (result.summary.warnCount === 0 && result.summary.dangerCount === 0) {
             if (episodeNo !== null) globalSummary.cleanEpisodes.push(episodeNo);
@@ -466,14 +544,25 @@ DANGER：
         globalSummary.cleanEpisodes.sort((a, b) => a - b);
         globalSummary.diffEpisodes.sort((a, b) => a - b);
 
+        const episodeSet = new Set();
+        allRows.forEach((row) => { if (Number.isInteger(row.episodeNo)) episodeSet.add(row.episodeNo); });
+        const episodeList = Array.from(episodeSet).sort((a, b) => a - b);
+
         state.resultPayload = { summary: globalSummary, rows: allRows };
+        state.allRows = allRows;
+        state.episodeList = episodeList;
+        state.currentEpisode = "ALL";
+
         renderMetrics(globalSummary);
         renderEpisodeSummary(globalSummary);
-        renderRows(allRows);
+        renderEpisodeErrorBoard(episodeList, episodeErrorCounts);
+        renderEpisodeTabs(episodeList);
+        renderRows(allRows, "ALL");
         els.downloadBtn.disabled = false;
         showToast(`完成！共处理 ${pairings.length} 个文件。`);
       } catch (error) {
         els.detailBody.innerHTML = `<tr><td colspan="5" class="muted">${escapeHtml(error.message)}</td></tr>`;
+        if (els.episodeErrorBoard) els.episodeErrorBoard.innerHTML = `<div class="muted">${escapeHtml(error.message)}</div>`;
       }
     });
 
@@ -722,10 +811,59 @@ DANGER：
       `;
     }
 
-    function renderRows(rows) {
-      els.detailBody.innerHTML = rows.map((row) => {
+    function renderEpisodeErrorBoard(episodeList, episodeErrorCounts) {
+      if (!els.episodeErrorBoard) return;
+      if (!episodeList.length) {
+        els.episodeErrorBoard.innerHTML = '<div class="muted">未识别到可展示的集数。</div>';
+        return;
+      }
+
+      const maxEpisode = Math.max(...episodeList);
+      const lines = [];
+      for (let start = 1; start <= maxEpisode; start += 20) {
+        const end = Math.min(start + 19, maxEpisode);
+        const tokens = [];
+        for (let ep = start; ep <= end; ep += 1) {
+          const count = Number(episodeErrorCounts[ep] || 0);
+          const cls = count > 5 ? 'ep-error-item-high' : '';
+          tokens.push(`<span class="${cls}">${ep}（${count}条）</span>`);
+        }
+        lines.push(`<div class="ep-error-line">${tokens.join('、')}</div>`);
+      }
+      els.episodeErrorBoard.innerHTML = lines.join('');
+    }
+
+    function renderEpisodeTabs(episodeList) {
+      const tabs = [
+        `<button class="episode-tab ${state.currentEpisode === "ALL" ? "active" : ""}" type="button" data-episode="ALL">全集</button>`,
+        ...episodeList.map((ep) => `<button class="episode-tab ${String(state.currentEpisode) === String(ep) ? "active" : ""}" type="button" data-episode="${ep}">${ep}</button>`)
+      ];
+      els.episodeTabs.innerHTML = tabs.join("");
+
+      els.episodeTabs.querySelectorAll(".episode-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.currentEpisode = btn.dataset.episode || "ALL";
+          renderEpisodeTabs(state.episodeList);
+          renderRows(state.allRows, state.currentEpisode);
+        });
+      });
+    }
+
+    function renderRows(rows, episodeFilter = "ALL") {
+      const filteredRows = rows.filter((row) => {
+        if (episodeFilter === "ALL") return true;
+        if (!Number.isInteger(row.episodeNo)) return false;
+        return String(row.episodeNo) === String(episodeFilter);
+      });
+
+      if (!filteredRows.length) {
+        els.detailBody.innerHTML = '<tr><td colspan="5" class="muted">当前集数无明细。</td></tr>';
+        return;
+      }
+
+      els.detailBody.innerHTML = filteredRows.map((row) => {
         if (row.isHeader) {
-          return `<tr><td colspan="5" class="file-group-header">本地文件：${escapeHtml(row.targetFileName)} ｜ 底稿文件：${escapeHtml(row.baseFileName)}</td></tr>`;
+          return `<tr><td colspan="5" class="file-group-header">本地文件：${escapeHtml(row.targetFileName)} ↔ 底稿文件：${escapeHtml(row.baseFileName)}</td></tr>`;
         }
         const baseTextHtml = row.highlightBaseDiff
           ? highlightBaseTextDiff(row.targetText, row.baseText)
@@ -816,3 +954,10 @@ DANGER：
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
