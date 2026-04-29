@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>画面字 SRT 生成工具 V5</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>
+    :root{
+      --bg:#f5f7fb; --card:#ffffff; --line:#dbe2f0; --text:#1f2937; --muted:#6b7280;
+      --blue:#2563eb; --blue2:#eff6ff; --green:#059669; --warn:#b45309;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1400px;margin:0 auto;padding:20px}
+    .title{font-size:28px;font-weight:800;margin:0 0 8px}
+    .sub{color:var(--muted);margin:0 0 18px}
+    .grid{display:grid;grid-template-columns:420px 1fr;gap:18px;align-items:start}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+    .section{padding:18px}
+    .section+.section{border-top:1px solid #eef2f7}
+    h2{font-size:16px;margin:0 0 12px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    label{display:block;font-size:13px;font-weight:700;margin:0 0 6px}
+    input[type=file],select,input[type=number]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:14px}
+    button{border:0;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:700;cursor:pointer}
+    .btn{background:var(--blue);color:#fff}
+    .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line)}
+    .btn.green{background:var(--green);color:#fff}
+    .btnrow{display:flex;gap:10px;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:var(--blue2);color:var(--blue);border-radius:999px;font-size:12px;font-weight:700}
+    .muted{color:var(--muted);font-size:13px}
+    .previewHead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .stats{display:flex;gap:10px;flex-wrap:wrap}
+    .stat{padding:8px 12px;border-radius:12px;background:#f8fafc;border:1px solid var(--line);font-size:13px}
+    textarea{width:100%;min-height:580px;border:1px solid var(--line);border-radius:16px;padding:16px;background:#0f172a;color:#e5eefc;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
+    .list{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:14px}
+    .item{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid #eef2f7;font-size:13px}
+    .item:last-child{border-bottom:0}
+    .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:#f3f4f6}
+    .ok{color:var(--green)}
+    .warn{color:var(--warn)}
+    @media (max-width:1100px){.grid{grid-template-columns:1fr}.row,.row3{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="title">画面字 SRT 生成工具 V5</h1>
+  <p class="sub">上传 Excel 后，手动选择时间解析方式，再按集数预览与导出 SRT。V4 已增强对 Excel 数值时间/日期格式的兼容，避免整集一直显示“待生成”。</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="section">
+        <h2>1. 上传 Excel</h2>
+        <label>Excel 文件</label>
+        <input id="excelFile" type="file" accept=".xlsx,.xls" />
+        <div style="margin-top:10px" class="pill">支持字段：集数 / 时间 / 内容 / 截图（截图可不参与 SRT）</div>
+      </div>
+
+      <div class="section">
+        <h2>2. 选择工作表与字段</h2>
+        <div class="row">
+          <div>
+            <label>工作表</label>
+            <select id="sheetSelect"></select>
+          </div>
+          <div>
+            <label>集数字段</label>
+            <select id="episodeField"></select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div>
+            <label>时间字段</label>
+            <select id="timeField"></select>
+          </div>
+          <div>
+            <label>内容字段</label>
+            <select id="contentField"></select>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label>截图字段（可选）</label>
+          <select id="imageField"></select>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>3. 时间解析与生成规则</h2>
+        <div class="row3">
+          <div>
+            <label>时间解析方式</label>
+            <select id="timeMode">
+              <option value="ms">分:秒</option>
+              <option value="hms">时:分:秒</option>
+              <option value="hmsms">时:分:秒:毫秒</option>
+            </select>
+          </div>
+          <div>
+            <label>持续秒数</label>
+            <select id="durationSec">
+              <option value="1" selected>1 秒</option>
+              <option value="2">2 秒</option>
+              <option value="3">3 秒</option>
+              <option value="4">4 秒</option>
+              <option value="5">5 秒</option>
+            </select>
+          </div>
+          <div>
+            <label>当前预览集数</label>
+            <select id="episodeSelect"></select>
+          </div>
+        </div>
+
+        <div class="btnrow" style="margin-top:14px">
+          <button class="btn" id="generateBtn">生成预览</button>
+          <button class="btn secondary" id="downloadCurrentBtn">下载当前集 SRT</button>
+          <button class="btn green" id="downloadAllBtn">打包下载全部集数 SRT</button>
+        </div>
+        <p class="muted" style="margin:10px 0 0">
+          说明：时间格式由你手动指定，不再自动猜测。切换“时间解析方式”或“持续秒数”后，会自动刷新当前集预览。
+        </p>
+      </div>
+
+      <div class="section">
+        <h2>4. 当前数据概览</h2>
+        <div id="summaryList" class="list">
+          <div class="item"><span>还未加载数据</span><span class="badge">0</span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>5. 集数生成情况</h2>
+        <div id="episodeStatusList" class="list">
+          <div class="item"><span>全集：0集</span></div>
+          <div class="item"><span>成功生成集数：-</span></div>
+          <div class="item"><span>未生成集数：-</span></div>
+          <div class="item"><span>未生成失败原因：</span></div>
+          <div class="item"><span>-</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section">
+        <div class="previewHead">
+          <div>
+            <h2 style="margin-bottom:6px">当前集 SRT 预览</h2>
+            <div class="muted">只显示当前选中集数的标准 SRT 内容</div>
+          </div>
+          <div class="stats">
+            <div class="stat">当前集：<strong id="currentEpisodeLabel">-</strong></div>
+            <div class="stat">条目数：<strong id="currentCount">0</strong></div>
+            <div class="stat">时间模式：<strong id="currentModeLabel">分:秒</strong></div>
+          </div>
+        </div>
+        <textarea id="previewArea" spellcheck="false" placeholder="上传 Excel 后，选择字段与时间格式即可预览"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let workbook = null;
+let rows = [];
+let currentPreviewMap = new Map();
+let episodeBuildStats = new Map();
+
+const els = {
+  excelFile: document.getElementById('excelFile'),
+  sheetSelect: document.getElementById('sheetSelect'),
+  episodeField: document.getElementById('episodeField'),
+  timeField: document.getElementById('timeField'),
+  contentField: document.getElementById('contentField'),
+  imageField: document.getElementById('imageField'),
+  timeMode: document.getElementById('timeMode'),
+  durationSec: document.getElementById('durationSec'),
+  episodeSelect: document.getElementById('episodeSelect'),
+  generateBtn: document.getElementById('generateBtn'),
+  downloadCurrentBtn: document.getElementById('downloadCurrentBtn'),
+  downloadAllBtn: document.getElementById('downloadAllBtn'),
+  summaryList: document.getElementById('summaryList'),
+  episodeStatusList: document.getElementById('episodeStatusList'),
+  previewArea: document.getElementById('previewArea'),
+  currentEpisodeLabel: document.getElementById('currentEpisodeLabel'),
+  currentCount: document.getElementById('currentCount'),
+  currentModeLabel: document.getElementById('currentModeLabel'),
+};
+
+const modeLabelMap = { ms:'分:秒', hms:'时:分:秒', hmsms:'时:分:秒:毫秒' };
+
+function fillSelect(select, values, includeBlank=false){
+  select.innerHTML = '';
+  if(includeBlank){
+    const op = document.createElement('option');
+    op.value = '';
+    op.textContent = '（无）';
+    select.appendChild(op);
+  }
+  values.forEach(v=>{
+    const op = document.createElement('option');
+    op.value = v;
+    op.textContent = v;
+    select.appendChild(op);
+  });
+}
+
+function guessField(headers, candidates){
+  const lowerHeaders = headers.map(h => String(h).trim().toLowerCase());
+  for(const c of candidates){
+    const idx = lowerHeaders.findIndex(h => h === c.toLowerCase() || h.includes(c.toLowerCase()));
+    if(idx >= 0) return headers[idx];
+  }
+  return headers[0] || '';
+}
+
+function normalizeEpisode(v){
+  let s = String(v ?? '').trim();
+  if(!s) return '';
+  const m = s.match(/(\d+)/);
+  if(m) return String(parseInt(m[1],10));
+  return s;
+}
+
+function getEpisodeListFromRows(epField){
+  const set = new Set();
+  rows.forEach(r=>{
+    const ep = normalizeEpisode(r[epField]);
+    if(ep) set.add(ep);
+  });
+  return [...set].sort((a,b)=>{
+    const na = Number(a), nb = Number(b);
+    if(!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    return String(a).localeCompare(String(b), 'zh-CN');
+  });
+}
+
+function normalizeMs(msPart){
+  if(msPart == null) return 0;
+  const s = String(msPart);
+  if(s.length === 1) return parseInt(s,10) * 100;
+  if(s.length === 2) return parseInt(s,10) * 10;
+  return parseInt(s.slice(0,3),10);
+}
+
+function parseNumericTimeToMs(raw){
+  if(raw instanceof Date){
+    return raw.getHours() * 3600000 + raw.getMinutes() * 60000 + raw.getSeconds() * 1000 + raw.getMilliseconds();
+  }
+
+  let n = null;
+  if(typeof raw === 'number'){
+    n = raw;
+  } else if(typeof raw === 'string'){
+    const s = raw.trim();
+    if(/^-?\d+(?:\.\d+)?$/.test(s)) n = Number(s);
+  }
+
+  if(n == null || !Number.isFinite(n) || n < 0) return null;
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  if(n < 1){
+    return Math.round(n * dayMs);
+  }
+
+  const frac = n % 1;
+  if(frac > 0){
+    return Math.round(frac * dayMs);
+  }
+  return null;
+}
+
+function parseTextTimeByMode(input, mode){
+  let h=0, m=0, s=0, ms=0;
+
+  if(mode === 'ms'){
+    const mm = input.match(/^(\d+):(\d{1,2})(?:[.,](\d{1,3}))?$/);
+    if(!mm) return null;
+    m = parseInt(mm[1],10);
+    s = parseInt(mm[2],10);
+    ms = normalizeMs(mm[3]);
+    return h*3600000 + m*60000 + s*1000 + ms;
+  }
+
+  if(mode === 'hms'){
+    const hh = input.match(/^(\d+):(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?$/);
+    if(!hh) return null;
+    h = parseInt(hh[1],10);
+    m = parseInt(hh[2],10);
+    s = parseInt(hh[3],10);
+    ms = normalizeMs(hh[4]);
+    return h*3600000 + m*60000 + s*1000 + ms;
+  }
+
+  if(mode === 'hmsms'){
+    const hm = input.match(/^(\d+):(\d{1,2}):(\d{1,2}):(\d{1,3})$/);
+    if(!hm) return null;
+    h = parseInt(hm[1],10);
+    m = parseInt(hm[2],10);
+    s = parseInt(hm[3],10);
+    ms = normalizeMs(hm[4]);
+    return h*3600000 + m*60000 + s*1000 + ms;
+  }
+  return null;
+}
+
+function parseTimeByMode(raw, mode){
+  const numericMs = parseNumericTimeToMs(raw);
+  if(numericMs != null) return numericMs;
+
+  const input = String(raw ?? '').trim()
+    .replace(/，/g, ',')
+    .replace(/：/g, ':')
+    .replace(/\s+/g, '');
+  if(!input) return null;
+
+  const first = parseTextTimeByMode(input, mode);
+  if(first != null) return first;
+
+  // 如果手动选择的模式与数据不完全一致，尝试其他常见格式作为兜底，避免整批“待生成”
+  const fallbackModes = ['hms', 'ms', 'hmsms'].filter(m => m !== mode);
+  for(const fallback of fallbackModes){
+    const parsed = parseTextTimeByMode(input, fallback);
+    if(parsed != null) return parsed;
+  }
+  return null;
+}
+
+function msToSrt(ms){
+  const total = Math.max(0, Math.round(ms));
+  const h = Math.floor(total / 3600000);
+  const m = Math.floor((total % 3600000) / 60000);
+  const s = Math.floor((total % 60000) / 1000);
+  const milli = total % 1000;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(milli).padStart(3,'0')}`;
+}
+
+function formatEpisodeList(eps){
+  if(!eps.length) return '-';
+  return eps.join('、');
+}
+
+function renderEpisodeStatus(){
+  const epField = els.episodeField.value || '';
+  const totalEpisodes = getEpisodeListFromRows(epField);
+  const successEpisodes = [...currentPreviewMap.keys()].sort((a,b)=>Number(a)-Number(b));
+  const successSet = new Set(successEpisodes);
+  const failedEpisodes = totalEpisodes.filter(ep => !successSet.has(ep));
+
+  let failReasonLines = '-';
+  if(failedEpisodes.length){
+    const lines = [];
+    failedEpisodes.forEach(ep => {
+      const stat = episodeBuildStats.get(ep) || {};
+      const reasons = [];
+      if((stat.missingFieldCount || 0) > 0) reasons.push('字段缺失');
+      if((stat.invalidTimeCount || 0) > 0) reasons.push('时间不符合当前模式');
+      if(!reasons.length) reasons.push('字段缺失');
+      lines.push(`${ep} (${reasons.join('、')})`);
+    });
+    failReasonLines = lines.join('<br>');
+  }
+
+  els.episodeStatusList.innerHTML = [
+    `<div class="item"><span>全集：${totalEpisodes.length}集</span></div>`,
+    `<div class="item"><span>成功生成集数：${formatEpisodeList(successEpisodes)}</span></div>`,
+    `<div class="item"><span>未生成集数：${formatEpisodeList(failedEpisodes)}</span></div>`,
+    `<div class="item"><span>未生成失败原因：</span></div>`,
+    `<div class="item"><span>${failReasonLines}</span></div>`
+  ].join('');
+}
+
+function updateSummary(okCount=0, failCount=0){
+  const eps = [...currentPreviewMap.keys()].sort((a,b)=>Number(a)-Number(b));
+  if(!eps.length){
+    const totalEps = getEpisodeListFromRows(els.episodeField.value || '');
+    if(totalEps.length){
+      els.summaryList.innerHTML = totalEps.map(ep => `<div class="item"><span>第 ${ep} 集</span><span class="badge">待生成</span></div>`).join('');
+    } else {
+      els.summaryList.innerHTML = `<div class="item"><span>没有可生成的有效数据</span><span class="badge">0</span></div>`;
+    }
+    renderEpisodeStatus();
+    return;
+  }
+  let html = '';
+  eps.forEach(ep=>{
+    const text = currentPreviewMap.get(ep) || '';
+    const count = (text.match(/^\d+$/gm) || []).length;
+    html += `<div class="item"><span>第 ${ep} 集</span><span class="badge">${count} 条</span></div>`;
+  });
+  html += `<div class="item"><span class="ok">成功生成</span><span class="badge">${okCount}</span></div>`;
+  if(failCount){
+    html += `<div class="item"><span class="warn">未生成（字段缺失/时间不符合当前模式）</span><span class="badge">${failCount}</span></div>`;
+  }
+  els.summaryList.innerHTML = html;
+  renderEpisodeStatus();
+}
+
+function updateCurrentPreview(){
+  const ep = els.episodeSelect.value;
+  const mode = els.timeMode.value;
+  els.currentEpisodeLabel.textContent = ep ? `第 ${ep} 集` : '-';
+  els.currentModeLabel.textContent = modeLabelMap[mode] || mode;
+  const text = currentPreviewMap.get(ep) || '';
+  els.previewArea.value = text;
+  const count = (text.match(/^\d+$/gm) || []).length;
+  els.currentCount.textContent = count;
+}
+
+function buildPreview(keepEpisode=true){
+  if(!rows.length) return;
+
+  const epField = els.episodeField.value;
+  const timeField = els.timeField.value;
+  const contentField = els.contentField.value;
+  const mode = els.timeMode.value;
+  const duration = parseInt(els.durationSec.value, 10) * 1000;
+
+  if(!epField || !timeField || !contentField) return;
+
+  const prevEpisode = keepEpisode ? els.episodeSelect.value : '';
+  const grouped = new Map();
+  episodeBuildStats = new Map();
+  let okCount = 0;
+  let failCount = 0;
+
+  rows.forEach((row, idx) => {
+    const episode = normalizeEpisode(row[epField]);
+    const content = String(row[contentField] ?? '').trim();
+    const startMs = parseTimeByMode(row[timeField], mode);
+    const timeRaw = String(row[timeField] ?? '').trim();
+    const hasTimeValue = row[timeField] instanceof Date || timeRaw !== '';
+
+    if(!episode || !content || startMs == null){
+      failCount++;
+      if(episode){
+        if(!episodeBuildStats.has(episode)){
+          episodeBuildStats.set(episode, { missingFieldCount: 0, invalidTimeCount: 0 });
+        }
+        const stat = episodeBuildStats.get(episode);
+        if(!content || !hasTimeValue) stat.missingFieldCount++;
+        else if(startMs == null) stat.invalidTimeCount++;
+      }
+      return;
+    }
+
+    okCount++;
+    if(!episodeBuildStats.has(episode)){
+      episodeBuildStats.set(episode, { missingFieldCount: 0, invalidTimeCount: 0 });
+    }
+    const item = {
+      index: idx + 1,
+      episode,
+      content,
+      startMs,
+      endMs: startMs + duration
+    };
+    if(!grouped.has(episode)) grouped.set(episode, []);
+    grouped.get(episode).push(item);
+  });
+
+  for(const arr of grouped.values()){
+    arr.sort((a,b)=>a.startMs-b.startMs || a.index-b.index);
+  }
+
+  currentPreviewMap = new Map();
+  [...grouped.keys()].sort((a,b)=>Number(a)-Number(b)).forEach(ep=>{
+    const arr = grouped.get(ep);
+    const text = arr.map((it,i)=>`${i+1}\n${msToSrt(it.startMs)} --> ${msToSrt(it.endMs)}\n${it.content}\n`).join('\n');
+    currentPreviewMap.set(ep, text.trim());
+  });
+
+  const generatedEpisodes = [...currentPreviewMap.keys()].sort((a,b)=>Number(a)-Number(b));
+  fillSelect(els.episodeSelect, generatedEpisodes.length ? generatedEpisodes : getEpisodeListFromRows(epField));
+  if(prevEpisode && [...els.episodeSelect.options].some(o => o.value === prevEpisode)){
+    els.episodeSelect.value = prevEpisode;
+  } else if(els.episodeSelect.options.length){
+    els.episodeSelect.value = els.episodeSelect.options[0].value;
+  }
+
+  updateSummary(okCount, failCount);
+  updateCurrentPreview();
+}
+
+function refreshEpisodeOptionsOnly(){
+  if(!rows.length || !els.episodeField.value) return;
+  const prev = els.episodeSelect.value;
+  const eps = getEpisodeListFromRows(els.episodeField.value);
+  fillSelect(els.episodeSelect, eps);
+  if(prev && eps.includes(prev)) els.episodeSelect.value = prev;
+  else if(eps.length) els.episodeSelect.value = eps[0];
+  updateCurrentPreview();
+  updateSummary();
+}
+
+function refreshSheet(){
+  const name = els.sheetSelect.value;
+  if(!workbook || !name) return;
+
+  const ws = workbook.Sheets[name];
+  rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+
+  const headers = rows.length ? Object.keys(rows[0]) : [];
+  fillSelect(els.episodeField, headers);
+  fillSelect(els.timeField, headers);
+  fillSelect(els.contentField, headers);
+  fillSelect(els.imageField, headers, true);
+
+  els.episodeField.value = guessField(headers, ['集数','集','episode','ep']);
+  els.timeField.value = guessField(headers, ['时间','时码','time']);
+  els.contentField.value = guessField(headers, ['内容','文案','文字','字幕','content','text']);
+  const guessedImg = guessField(headers, ['截图','图片','画面','image','img']);
+  if(headers.includes(guessedImg)) els.imageField.value = guessedImg;
+
+  currentPreviewMap = new Map();
+  episodeBuildStats = new Map();
+  refreshEpisodeOptionsOnly();
+  els.previewArea.value = '';
+  els.currentCount.textContent = '0';
+  renderEpisodeStatus();
+}
+
+function autoRefreshIfReady(){
+  if(rows.length && els.episodeField.value && els.timeField.value && els.contentField.value){
+    buildPreview(true);
+  }
+}
+
+function downloadBlob(filename, blob){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 500);
+}
+
+els.excelFile.addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const buf = await file.arrayBuffer();
+  workbook = XLSX.read(buf, {type:'array'});
+  fillSelect(els.sheetSelect, workbook.SheetNames);
+  if(workbook.SheetNames.length){
+    els.sheetSelect.value = workbook.SheetNames[0];
+    refreshSheet();
+    autoRefreshIfReady();
+  }
+});
+
+els.sheetSelect.addEventListener('change', ()=>{ refreshSheet(); autoRefreshIfReady(); });
+els.episodeField.addEventListener('change', ()=>{ refreshEpisodeOptionsOnly(); autoRefreshIfReady(); });
+els.timeField.addEventListener('change', autoRefreshIfReady);
+els.contentField.addEventListener('change', autoRefreshIfReady);
+els.generateBtn.addEventListener('click', ()=>buildPreview(true));
+els.episodeSelect.addEventListener('change', updateCurrentPreview);
+els.timeMode.addEventListener('change', autoRefreshIfReady);
+els.durationSec.addEventListener('change', autoRefreshIfReady);
+
+els.downloadCurrentBtn.addEventListener('click', ()=>{
+  const ep = els.episodeSelect.value;
+  const text = currentPreviewMap.get(ep);
+  if(!ep || !text){
+    alert('请先生成预览，并选择一个集数。');
+    return;
+  }
+  downloadBlob(`${ep}.srt`, new Blob([text], {type:'text/plain;charset=utf-8'}));
+});
+
+els.downloadAllBtn.addEventListener('click', async ()=>{
+  if(!currentPreviewMap.size){
+    alert('请先生成预览。');
+    return;
+  }
+  const zip = new JSZip();
+  [...currentPreviewMap.keys()].sort((a,b)=>Number(a)-Number(b)).forEach(ep=>{
+    zip.file(`${ep}.srt`, currentPreviewMap.get(ep) || '');
+  });
+  const blob = await zip.generateAsync({type:'blob'});
+  downloadBlob('all_srt.zip', blob);
+});
+</script>
+</body>
+</html>
